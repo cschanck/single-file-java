@@ -1,4 +1,4 @@
-# single-file-java
+# Single File Java
 What can you do in one file, no dependencies?
 
 Modern Java development is often a joy *because* of the extensive ecosystem. 
