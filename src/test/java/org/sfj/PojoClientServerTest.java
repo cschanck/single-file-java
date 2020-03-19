@@ -1,4 +1,4 @@
-package org.singlefilejava;
+package org.sfj;
 
 import org.junit.Test;
 

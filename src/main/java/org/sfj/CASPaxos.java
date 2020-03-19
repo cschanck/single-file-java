@@ -1,4 +1,4 @@
-package org.singlefilejava;
+package org.sfj;
 
 import java.io.Serializable;
 import java.util.Comparator;
@@ -96,9 +96,9 @@ public class CASPaxos {
     @Override
     public int compareTo(Ballot o) {
       int ret = Integer.compare(mighty, o.mighty);
-      if (ret != 0) {
+      if (ret == 0) {
         ret = Integer.compare(nodeID, o.nodeID);
-        if (ret != 0) {
+        if (ret == 0) {
           ret = Integer.compare(tiny, o.tiny);
         }
       }
@@ -244,14 +244,6 @@ public class CASPaxos {
     Ballot getMaxBallot();
 
     /**
-     * Get the  current promise for this key (use under lock for this key)
-     *
-     * @param key key
-     * @return promise
-     */
-    Ballot getPromise(String key);
-
-    /**
      * Poll for a value. (use under lock for this key)
      *
      * @param key key
@@ -269,12 +261,21 @@ public class CASPaxos {
     KV get(String key);
 
     /**
-     * Set promise for this key (use under lock for this key)
+     * Get the curent promise for this key
+     *
+     * @param key key
+     * @return promise ballot
+     */
+    Ballot getPromise(String key);
+
+    /**
+     * Attempt to set promise for this key (use under lock for this key)
      *
      * @param key key
      * @param ballot ballot to promise
+     * @return if the ballot is greater than the current promise for this key
      */
-    void promise(String key, Ballot ballot);
+    boolean promise(String key, Ballot ballot);
 
     /**
      * Store this kv. (use under lock for this key)
@@ -459,12 +460,10 @@ public class CASPaxos {
     lock.lock();
     try {
       KV is = storage.get(prep.key);
-      Ballot promise = storage.getPromise(prep.key);
-      if (prep.ballot.compareTo(promise) < 0) {
-        response.accept(new RoundStepResult(false, is));
-      } else {
-        storage.promise(prep.key, prep.ballot);
+      if (storage.promise(prep.key, prep.ballot)) {
         response.accept(new RoundStepResult(true, is));
+      } else {
+        response.accept(new RoundStepResult(false, is));
       }
     } finally {
       lock.unlock();
@@ -482,8 +481,7 @@ public class CASPaxos {
     Lock lock = storage.lockFor(acc.kv.key);
     lock.lock();
     try {
-      Ballot promise = storage.getPromise(acc.kv.key);
-      if (promise.equals(acc.kv.ballot)) {
+      if (acc.kv.ballot.compareTo(storage.getPromise(acc.kv.key)) >= 0) {
         // cool, accept the value
         storage.store(acc.kv);
         response.accept(new RoundStepResult(true, acc.kv));
@@ -522,15 +520,23 @@ public class CASPaxos {
     // send to everyone, wait for min number of ok responses, within timeout
     List<RoundStepResult> prepResults = net.sendAll(prep, quorum, RoundStepResult::isOk, roundTimeout, units);
 
+    int gCount = (int) prepResults.stream().filter(RoundStepResult::isOk).count();
     // if not enough, lose, fail, conflict.
-    if (prepResults.stream().filter(RoundStepResult::isOk).count() < quorum) {
+
+    if (gCount < quorum) {
       // roll my ballot a lot to have a better shot to overcome the conflict.
       currentBallot = currentBallot.incrementMighty(me);
       return badResult(prepResults, quorum);
     }
 
     // has to be at least 1. Get the max key value, it's the consensus basis.
-    KV max = prepResults.stream().map(r -> r.kv).max(Comparator.comparing(KV::getBallot)).get();
+    KV
+      max =
+      prepResults.stream()
+        .filter(RoundStepResult::isOk)
+        .map(RoundStepResult::getKV)
+        .max(Comparator.comparing(KV::getBallot))
+        .get();
 
     // apply change transform
     KV newKV = new KV(next, max.key, transform.apply(max.val));
@@ -541,15 +547,17 @@ public class CASPaxos {
     // send to everyone, wait for min number of ok responses, within timeout
     List<RoundStepResult> accResults = net.sendAll(acc, quorum, RoundStepResult::isOk, roundTimeout, units);
 
+    gCount = (int) accResults.stream().filter(RoundStepResult::isOk).count();
+
     // if below quorum, fail, either timeout or conflict, oh well.
-    if (accResults.stream().filter(RoundStepResult::isOk).count() < quorum) {
+    if (gCount < quorum) {
       // roll my ballot a lot to have a better shot to overcome the conflict.
       currentBallot = currentBallot.incrementMighty(me);
       return badResult(prepResults, quorum);
     }
 
     // cool, it worked, return consensus value
-    return new CASPaxos.RoundResult(PaxosResult.OK, newKV, accResults.size());
+    return new CASPaxos.RoundResult(PaxosResult.OK, newKV, gCount);
 
   }
 

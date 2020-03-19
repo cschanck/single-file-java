@@ -1,4 +1,4 @@
-package org.singlefilejava;
+package org.sfj;
 
 import org.hamcrest.Matchers;
 import org.junit.Assert;

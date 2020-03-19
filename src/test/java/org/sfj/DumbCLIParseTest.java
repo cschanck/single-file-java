@@ -1,4 +1,4 @@
-package org.singlefilejava;
+package org.sfj;
 
 import org.junit.Test;
 
@@ -7,12 +7,12 @@ import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.singlefilejava.DumbCLIParse.FlagArg;
-import static org.singlefilejava.DumbCLIParse.args;
-import static org.singlefilejava.DumbCLIParse.scanForAllFlags;
-import static org.singlefilejava.DumbCLIParse.scanForAllParamArgs;
-import static org.singlefilejava.DumbCLIParse.scanForArgWithParm;
-import static org.singlefilejava.DumbCLIParse.scanForFlag;
+import static org.sfj.DumbCLIParse.FlagArg;
+import static org.sfj.DumbCLIParse.args;
+import static org.sfj.DumbCLIParse.scanForAllFlags;
+import static org.sfj.DumbCLIParse.scanForAllParamArgs;
+import static org.sfj.DumbCLIParse.scanForArgWithParm;
+import static org.sfj.DumbCLIParse.scanForFlag;
 
 public class DumbCLIParseTest {
   @Test

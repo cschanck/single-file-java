@@ -1,4 +1,4 @@
-package org.singlefilejava;
+package org.sfj;
 
 import org.hamcrest.Matchers;
 import org.junit.Rule;
@@ -17,9 +17,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
-import static org.singlefilejava.ChiseledMap.OpenOption.DONT_CARE;
-import static org.singlefilejava.ChiseledMap.OpenOption.MUST_BE_NEW;
-import static org.singlefilejava.ChiseledMap.OpenOption.MUST_EXIST;
+import static org.sfj.ChiseledMap.OpenOption.DONT_CARE;
+import static org.sfj.ChiseledMap.OpenOption.MUST_BE_NEW;
+import static org.sfj.ChiseledMap.OpenOption.MUST_EXIST;
 
 public class ChiseledMapTest {
 

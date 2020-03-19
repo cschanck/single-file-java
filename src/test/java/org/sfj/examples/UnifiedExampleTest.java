@@ -1,12 +1,12 @@
-package org.singlefilejava.examples;
+package org.sfj.examples;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.singlefilejava.ChiseledMap;
-import org.singlefilejava.DumbCLIParse;
-import org.singlefilejava.PojoClientServer;
-import org.singlefilejava.ProxyMe;
+import org.sfj.ChiseledMap;
+import org.sfj.DumbCLIParse;
+import org.sfj.PojoClientServer;
+import org.sfj.ProxyMe;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
