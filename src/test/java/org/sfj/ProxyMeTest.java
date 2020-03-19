@@ -99,7 +99,7 @@ public class ProxyMeTest {
     Map<Integer, Integer> mapProxy = client.clientProxy(Thread.currentThread().getContextClassLoader());
 
     try {
-      Integer p = mapProxy.get("foo");
+      mapProxy.get("foo");
       Assert.fail();
     } catch (Exception e) {
       assertThat(e.getCause(), Matchers.instanceOf(TimeoutException.class));
