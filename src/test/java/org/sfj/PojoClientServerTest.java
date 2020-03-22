@@ -44,7 +44,7 @@ public class PojoClientServerTest {
   @Test
   public void testOneServer1ClientSimpleSendRecieve() throws IOException, InterruptedException {
     ExecutorService pool = Executors.newCachedThreadPool();
-    PojoClientServer.Server server = new PojoClientServer.Server("test server", 1111, (cl) -> {
+    PojoClientServer.Server server = new PojoClientServer.Server("test server", 1112, (cl) -> {
       pool.submit(() -> {
         for (; ; ) {
           Object o = cl.receive();

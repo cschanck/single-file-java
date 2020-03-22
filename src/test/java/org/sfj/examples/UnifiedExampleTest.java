@@ -35,7 +35,7 @@ public class UnifiedExampleTest {
     // server ----------------------
 
     // faux cli parse
-    List<String> args = DumbCLIParse.args(new String[] { "-server=1111" });
+    List<String> args = DumbCLIParse.args(new String[] { "-server=1113" });
     int serverPort = Integer.parseInt(DumbCLIParse.scanForArgWithParm(args, "server").orElse("1110"));
 
     // create perisistent map
@@ -69,7 +69,7 @@ public class UnifiedExampleTest {
     // client ----------------------
 
     // cli parse
-    args = DumbCLIParse.args(new String[] { "--client=1111" });
+    args = DumbCLIParse.args(new String[] { "--client=1113" });
     int destPort = Integer.parseInt(DumbCLIParse.scanForArgWithParm(args, "client").orElse("1110"));
 
     // create client bundle
