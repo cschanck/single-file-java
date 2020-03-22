@@ -69,6 +69,8 @@ but the bounded nature of the language helped me stay focused.
 As a friend of mine, an awesome dev, would say: "Go code in a cave".
 
 # Usage
+See the Overview doc for a description of current files.
+
 Well, eventually there will be a maven jar one supposes, but really, just 
 download the file you need.
 

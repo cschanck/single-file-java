@@ -6,7 +6,7 @@ to implement, but Single Decree Paxos is pretty interesting. All credit
 to Denis Rystov for his blog posts and eventual paper on what he called
 CASPaxos. This class is a paxos framework for KV storage, users have to 
 provide network and storage objects to build a node. 
-
+ 
 ## ChiseledMap
 This is a very simple but pretty useful persistent ConcurrentMap 
 implementation. At it's core, it has an in-memory map of keys to 
@@ -16,6 +16,10 @@ on disk never gets smaller, though you can compact it to another file.
 ## DumbCLIParse
 Oh, lord, how many times do I need a quick and dirty CLI parser to
 throw together some one-off scripty Java tool. Well, here it is. 
+
+## JSONOne
+Single file JSON library. Parser, printer, JSON value objects for
+programmatic use. Not necessary in this world, but fun to write.  
 
 ## PojoClientServer
 Client and Server objects over Java blocking sockets. Expects to send,
@@ -31,3 +35,4 @@ backplane.
 
 ---
 - Mar/18/2020 Initial
+- Mar/20/2020 Add JSONOne description

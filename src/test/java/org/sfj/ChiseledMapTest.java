@@ -8,7 +8,6 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -43,8 +42,7 @@ public class ChiseledMapTest {
     long secs = TimeUnit.NANOSECONDS.toSeconds(took);
     long bytes = kv.bytesOnDisk();
     long bytesPerSec = bytes / secs;
-    System.out.println(kv.bytesOnDisk() + " --> " + took + "ns");
-    System.out.println("@ " + bytesPerSec + " bytes/sec");
+    System.out.println(kv.bytesOnDisk() + " --> " + took + "ns @ " + bytesPerSec + " bytes/sec");
     kv.close();
   }
 
@@ -69,16 +67,13 @@ public class ChiseledMapTest {
       assertThat(kv.get(i), is(i * 2));
     }
 
-    for(Map.Entry<Integer, Integer> i:kv.entries()) {
-      System.out.println(i);
-    }
     kv.close();
   }
 
   @Test
-  public void testThreadSafe1MinuteX4() throws IOException, InterruptedException {
+  public void testThreadSafe15SecondsX4() throws IOException, InterruptedException {
     int N = Integer.highestOneBit(4);
-    int SECS = 60 * 1;
+    int MSECS = 15 * 1000;
     int MANY = 100000;
 
     ConcurrentHashMap<Integer, String> shadow = new ConcurrentHashMap<>();
@@ -144,7 +139,7 @@ public class ChiseledMapTest {
 
     threads.forEach(t -> t.start());
 
-    Thread.sleep(SECS * 1000);
+    Thread.sleep(MSECS);
     stop.set(true);
     threads.forEach(t -> {
       try {
@@ -157,15 +152,15 @@ public class ChiseledMapTest {
       assertThat(kv.get(k), is(v));
     });
 
-    System.out.println(kv.getFile() +
-                       " Elements: " +
-                       kv.size() +
-                       " Bytes: " +
-                       kv.bytesOnDisk() +
-                       " EntriesOnDisk: " +
-                       kv.entriesOnDisk() +
-                       " Ops: " +
-                       ops.get());
+    //    System.out.println(kv.getFile() +
+    //                       " Elements: " +
+    //                       kv.size() +
+    //                       " Bytes: " +
+    //                       kv.bytesOnDisk() +
+    //                       " EntriesOnDisk: " +
+    //                       kv.entriesOnDisk() +
+    //                       " Ops: " +
+    //                       ops.get());
 
     File two = tmp.newFile();
     two.delete();
@@ -175,13 +170,15 @@ public class ChiseledMapTest {
       assertThat(newKV.get(k), is(v));
     });
 
-    System.out.println(newKV.getFile() +
-                       " Elements: " +
-                       newKV.size() +
-                       " Bytes: " +
-                       newKV.bytesOnDisk() +
-                       " EntriesOnDisk: " +
-                       newKV.entriesOnDisk());
+    assertThat(newKV.bytesOnDisk(), Matchers.lessThan(kv.bytesOnDisk()));
+
+    //    System.out.println(newKV.getFile() +
+    //                       " Elements: " +
+    //                       newKV.size() +
+    //                       " Bytes: " +
+    //                       newKV.bytesOnDisk() +
+    //                       " EntriesOnDisk: " +
+    //                       newKV.entriesOnDisk());
 
     newKV.close();
     kv.close();

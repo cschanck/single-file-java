@@ -32,12 +32,12 @@ public class PojoClientServerTest {
     PojoClientServer.Client client = new PojoClientServer.Client("test client");
     PojoClientServer.SingleConnection
       cl =
-      client.createOutgoingClient(new InetSocketAddress("localhost", 1111), 1000);
+      client.createOutgoingClient(new InetSocketAddress("localhost", 1111), 2000);
     cl.send(new Integer(10));
+    Thread.sleep(2000);
     client.closeAll();
     server.stop();
     pool.shutdownNow();
-    Thread.sleep(1000);
     assertThat(success.get(), is(true));
   }
 
