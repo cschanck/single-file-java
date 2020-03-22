@@ -56,7 +56,7 @@ public class PojoClientServerTest {
     PojoClientServer.Client client = new PojoClientServer.Client("test server");
     PojoClientServer.SingleConnection
       cl =
-      client.createOutgoingClient(new InetSocketAddress("localhost", 1111), 1000);
+      client.createOutgoingClient(new InetSocketAddress("localhost", 1112), 1000);
     Integer got = (Integer) cl.sendAndReceive(new Integer(10));
     client.closeAll();
     server.stop();
