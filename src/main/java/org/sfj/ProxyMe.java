@@ -34,7 +34,6 @@ import static java.lang.reflect.Proxy.newProxyInstance;
  * This is a class providing a simple framework for Proxying an
  * interface with user specified invocation middle. Useful to
  * remote proxy something, as in a poor man's RPC.
- *
  * @author cschanck
  */
 public class ProxyMe {
@@ -90,7 +89,6 @@ public class ProxyMe {
    * Return result of an invocation. Suitable to be returned from
    * a server site back to the client. Used to complete an outstanding proxy
    * invocation.
-   *
    * @param <R>
    */
   public static class InvocationReturn<R> implements Serializable {
@@ -121,21 +119,13 @@ public class ProxyMe {
 
     @Override
     public String toString() {
-      return "InvocationReturn{" +
-             "iid=" +
-             iid +
-             ", returnValue=" +
-             returnValue +
-             ", throwable=" +
-             throwable +
-             '}';
+      return "InvocationReturn{" + "iid=" + iid + ", returnValue=" + returnValue + ", throwable=" + throwable + '}';
     }
   }
 
   /**
    * Client side proxy site. Proxies a given interface, manages invocations,
    * passes invocations to designated consumer, manages timeouts.
-   *
    * @param <T>
    */
   public static class Client<T> {
@@ -145,11 +135,10 @@ public class ProxyMe {
     private final long timeout;
     private final TimeUnit units;
     private AtomicLong idGen = new AtomicLong(0);
-    private ConcurrentHashMap<Long, CompletableFuture> pending = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Long, CompletableFuture<?>> pending = new ConcurrentHashMap<>();
 
     /**
      * Create client proxy site.
-     *
      * @param timeouts Pool for timeouts.
      * @param proxyClass Interface to proxy
      * @param outbound Outbound callback
@@ -180,7 +169,6 @@ public class ProxyMe {
      * This actually hands you back the proxy class. Multiple calls here
      * create separate proxies, but they all go the same place. Uses the
      * current thread context classloader.
-     *
      * @return proxy
      */
     public T clientProxy() {
@@ -190,14 +178,14 @@ public class ProxyMe {
     /**
      * This actually hands you back the proxy class. Multiple calls here
      * create separate proxies, but they all go the same place.
-     *
      * @param loader ClassLoader to use.
      * @return proxy
      */
+    @SuppressWarnings( { "unchecked", "raw" })
     public T clientProxy(ClassLoader loader) {
       return (T) newProxyInstance(loader, new Class[] { proxyClass }, (proxy, method, args) -> {
         Invocation iv = new Invocation(idGen.incrementAndGet(), method.getName(), args);
-        CompletableFuture fut = new CompletableFuture();
+        CompletableFuture<?> fut = new CompletableFuture<>();
         pending.put(iv.iid, fut);
         outbound.accept(iv);
         if (timeout > 0) {
@@ -207,8 +195,6 @@ public class ProxyMe {
           return fut.get();
         } catch (ExecutionException e) {
           throw e.getCause();
-        } catch (InterruptedException e) {
-          throw e;
         } finally {
           pending.remove(iv.iid);
         }
@@ -218,12 +204,12 @@ public class ProxyMe {
     /**
      * Use to complete the client site invocation with an invocation
      * return.
-     *
      * @param ir Invocation return
      * @param <R> return object type
      */
+    @SuppressWarnings("unchecked")
     public <R> void complete(InvocationReturn<R> ir) {
-      CompletableFuture<R> fut = pending.remove(ir.iid);
+      CompletableFuture<R> fut = (CompletableFuture<R>) pending.remove(ir.iid);
       if (fut != null) {
         if (ir.throwable != null) {
           fut.completeExceptionally(ir.throwable);
@@ -236,7 +222,6 @@ public class ProxyMe {
 
   /**
    * Server site for proxies.
-   *
    * @param <T>
    */
   public static class Server<T> {
@@ -247,7 +232,6 @@ public class ProxyMe {
     /**
      * Create a server side path to invoke a particular invocation
      * on an instance of the proxy class.
-     *
      * @param proxy Proxy class
      * @param instance Instance of proxy class.
      */
@@ -276,11 +260,11 @@ public class ProxyMe {
     /**
      * Invoke the Invocation on the instance object, returning the
      * InvocationReturn object.
-     *
      * @param invocation Invocation
      * @param <R> Return type
      * @return InvocationReturn
      */
+    @SuppressWarnings("unchecked")
     public <R> InvocationReturn<R> invoke(Invocation invocation) {
       Method m = methods.get(invocation.methodName);
       R ret = null;
@@ -290,7 +274,7 @@ public class ProxyMe {
       } catch (Throwable e) {
         throwable = e;
       }
-      return new InvocationReturn<R>(invocation.iid, ret, throwable);
+      return new InvocationReturn<>(invocation.iid, ret, throwable);
     }
   }
 }

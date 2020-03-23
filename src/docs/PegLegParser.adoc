@@ -1,0 +1,410 @@
+= PegLeg Parser
+
+== Intro and Motivation
+PegLegParser implements a Parsing Expression Grammar (PEG) framework. 
+
+PEGs are an interesting branch of parsing; read about them further on
+https://en.wikipedia.org/wiki/Parsing_expression_grammar[Wikipedia].
+
+I was first exposed to PEGs via the excellent
+https://github.com/sirthias/parboiled/wiki[Parboiled parsing library]. I used it
+a bunch of times to build lots of small parsers, and by and large it went well.
+PEGS can do a lot* of backtracking, so they are rarely the fastest parsers, but
+with seven core rules, they are really nice to work with. Plus, it can be
+*really* nice to not have to work in one kind of source file, then use a build
+plugin to generate your target parser code, as ANTLR and JavaCC and friends have
+you do. (I'm a big JavaCC fan as well.)
+
+But Parboiled was built in the pre-Java-8 days, before lambdas etc. 
+Because of that, and I assume other reasons, Parboiled uses bytecode generation, 
+Proxies, etc to expose a natural API. 
+
+As I mostly hate extraneous dependencies, I always wanted to do a PEG impl like
+Parboiled, but with no fancy code manipulation. After Java 8 was released, it seemed
+like it could be done without all the low level machinations. PegLeg is my attempt to
+do so. 
+
+== Core Concepts
+
+When you write a parser using PegLeg, you start by extending the PegLegParser
+class, typed by the kind of value you will be placing on the value stack.\
+
+Note: By default, the pasrser recognizes any character in the string `" \n\r\f"` 
+as whitespace; change that with the `setWhitespace(String)` method.
+
+Also, regarding the input string, the parser defaults to `System.lineSeparator()`
+for the end of line string. If it is anything but '\n', the input string has every
+instance of the line separator replaced with '\n'. You can set the seperator string
+directly via `setLineSeparator()` if you wish. In general, it would be best to
+filter the input to newlines only, and set the line separator the same to
+avoid the overhead.
+
+=== Terminal Rules
+PegLeg provides a number of terminal rules to help things along: 
+
+* `eof()` -- end of input
+* `eol()` -- end of a line. depends on the line separator set for the 
+parser. Can be multichar.
+* `ws()` -- greedy matches the whitespace chars
+* `anyChar()` -- matches any character
+* `nothing()` -- matches nothing, fails match
+* `empty()` -- matches nothing, successful matches
+* Character/String literals:
+** `ch(char)` -- matches the char
+** `str(String)` -- matches the string literal
+** `charRange(char from, char to)` -- matches character range.
+** `ws(String)` -- matches the string, surrounded by 0 or more white space chars
+*** (basically, this is a specialized version of `seqOf(zeroPlusOf(ws()), str(String), zeroPlusOf(ws()))`
+** `ws(char)` -- matches the char, surrounded by 0 or more white space chars
+** `anyOf(String)` -- matches 1 char, from the set in the string
+** `noneOf(String)` -- matches 1 char, not in the set in the string
+
+IMPORTANT: All of these add a .ignoreCase() call returning a variant that ignores case so
+you can do `charRange('a', 'b').ignoreCase()`, for example.
+
+==== PegLeg Core PEG Rules
+These are PegLeg's take on the core PEG rules:
+
+IMPORTANT: For each of the following rules that take `(Object... rules)` as an
+argument, the argument list of rules is actually treated like it was invoked via
+`seqOf(rule1, rule2, rule3)`, generating an implicit single rule, with the
+exception of `firstOf()` and, well, `seqOf()` itself.
+
+* `seqOf(Object... rules)` -- Sequence rule; it only matches if every subrule
+provided matches, in order. One rule to rule them all.
+* `firstOf(Object... rules)` -- Choice rule; tries each subrule in order, stops
+successfully on the first match.
+* Repeating rules
+** `zeroPlusOf(Object... rules)` -- ZeroOrMore rule; classic __*__ rule, greedy.
+** `onePlusOf(Object... rules)` -- OneOrMore rule; classic __+__ rule, greedy.
+** `optOf(Object... rules)` -- Optional rule; classic __?__ rule, greedy.
+** `timesOf(int many, Object... rules)` -- matches only if the subrule matches
+a specific number of times
+** `timesOf(int min, int max, Object... rules)` -- matches only if the subrule matches
+at least *min*, up to *max*, greedy.
+
+NOTE: Note that `zeroPlusOf`, `onePlusOf`, `optOf`, `timesOf(int many,...)` are all just
+specialized variants of the `timesOf(int min, int max, ...)`.
+
+* Test rules
+** `testOf(Object... rules)` -- Test (__&__) rule, matches if only the subrule matches, but
+does not consume input. Used to lookahead.
+** `testNotOf(Object... rules)` -- Test (__!__) rule, matches if only the subrule does not match,
+does not consume input. Used to lookahead.
+
+----
+These two rules explain a lot of why PEGs are not the most efficient
+parsers, lots of lookahead tends to be needed to make unambigious choices.
+----
+
+All of these rules actually return `ParentRule` objects, which gives you the ability
+to denote `Ref<>` objects for usage during an invocation of the rule. Like so:
+
+[source,java]
+----
+public PEGRule<String> myRule() {
+	Ref<Integer> intRef=new Ref<Integer>(0);
+	return seqOf(aRule(), bRule(), cRule().refs(intRef).rule();
+}
+----
+
+This manages the visible value for the duration of the rule invocation. More later.
+ 
+==== Rule Definition
+Let's pick the best rule; the `seqOf(Object... rules)` rule. 
+
+The objects in the argument list to `seqOf()` (and all the other provided non-terminal 
+rules) can be of a few different types:
+* an instance of `PegLegRule`
+** all of the provided PegLeg rules, such as `ch()`, `anyOf()`, `zeroPlusOf()`, etc,
+implement `PegLegRule`.
+** you will write methods returning `PegLegRule`; this is how the grammar is constructed.
+* a __character literal__ -- automatically converted to a `ch()` rule
+* a __string literal__ -- automatically converted to a `str()` rule
+* an `Exec` lambda, which is just like a sort of boolean function, and 
+can execute any arbitrary code needed to build things from the parse run,
+(more on this later). Returning true means parsing continues, false indicates 
+a failed match. 
+* a __Runnable__, which gets wrapped in an `exec(Runnnable)` call. Note that the 
+exec(Runnable) method provides an easy way to define these as lambdas 
+without needing to cast the lambda. 
+
+So, for example:
+
+[source,java]
+----
+class Foo extends PegLegParser<Object> {
+
+	PegLegRule<Object> abcd() {
+		return seqOf('a', 'b', 'c', 'd');
+	}
+
+}
+----
+
+defines a rule that machines the characters 'abcd' in order. 
+
+By nesting, you can build up more complicated matches:
+
+[source,java]
+----
+class Foo extends PegLegParser<Object> {
+
+	PegLegRule<Object> abcd() {
+		return seqOf(ab(), cd());
+	}
+
+	PegLegRule<Object> ab() {
+		return seqOf('a', 'b');
+	}
+
+	PegLegRule<Object> cd() {
+		return seqOf('c', 'd');
+	}
+
+}
+----
+
+There is one hitch; recursion. Imagine this class:
+
+[source,java]
+----
+class ABCGrammer extends PegLegParser<Object> {
+
+   public PegLegRule<Object> S() {
+       return seqOf(testOf(seqOf(A(), 'c')), onePlusOf('a'), B(), testNotOf(anyOf("abc")), eof());
+   }
+
+   public PegLegRule<Object> A() {
+       return seqOf('a', optOf(A()), 'b');
+   }
+
+   public PegLegRule<Object> B() {
+       return seqOf('b', optOf(B()), 'c');
+   }
+}
+----
+
+This class matches either "abc" or "aabbcc" etc.
+
+Except it won't work, because the recursion in `A()` and `B()` causes a stack
+overflow exception, since the call chain for both methods goes right to itself.
+The fix for this is very easy; in the rule definition, instead of returning the
+rule directly, you return a lambda of the rule:
+
+[source,java]
+----
+class ABCGrammer extends PegLegParser<Object> {
+
+   public PegLegRule<Object> S() {
+       return seqOf(testOf(seqOf(A(), 'c')), onePlusOf('a'), B(), testNotOf(anyOf("abc")), eof());
+   }
+
+   public PegLegRule<Object> A() {
+       return () -> seqOf('a', optOf(A()), 'b').rule();
+   }
+
+   public PegLegRule<Object> B() {
+       return () -> seqOf('b', optOf(B()), 'c').rule();
+   }
+}
+----
+
+In this way, you decouple the creation of the rule from the execution of the 
+rule. Note that the terminal rules do not do this (they are terminal after all).
+
+Also note that Rule's implicitly expect to be able to reside in a class that
+implements Supplier<Context<V>> to get to the context of the parser; usually
+this is the parser itself; the Rules make use of `get()` to see whats going on. 
+Feel free to have a hierarchy of parsing code tho.
+
+=== Exec() calls
+The `e(Runnable)`, `exec(Runnable)` and `testExec(Exec)` are the ways 
+you "call out" in the middle of parsing and do stuff (construct a node of objects, 
+etc). 
+
+Example:
+
+[source,java]
+----
+class Foo extends PegLegParser<Object> {
+
+	PegLegRule<Object> abcd() {
+		Ref<Integer> refInt = new Ref<>(0);
+		return seqOf(
+			'a',
+			(Runnable)() -> System.out.println("a match = "+get().match());
+			'b',
+			exec(() -> System.out.println("b match = "+get().match()));
+			'c',
+			testExec(() -> {
+				System.out.println("c match = "+get().match()));
+				ref.set(ref.get()+1);
+				return ref.get()<10;
+			}
+			'd').refs(refInt);
+	}
+}
+----
+
+Here you see our silly grammar again, for 'abcd'. Only now, we are
+going to do some callouts as we match. 
+
+(The `.refs()` call tells the rule to provisions a new temp copy of the `refInt`
+variable, to it's init value of zero. This copy is live only for the duration of
+the rule invocation, and is not shared with recursive calls below. The value
+will disappear when rule execution ends. More about `Ref` variables later.)
+
+The first case shows a simple Runnable callout. Since the args to `seqOf()`
+are just Objects, it is necessary to cast it. It just prints the match.
+
+The second case uses the `exec(Runnable)` sugar to avoid the wordy cast,
+but does the same thing.
+
+Finally, the last case shows a full Exec lambda, which increments the 
+`Ref` variable and then return true or false based on whether it is less
+than 10. If it returns false, parsing will stop. 
+
+=== Values() Stack & Ref Variables
+
+==== Values object
+Each parsing run has access to a typed stack of values. This is how you return 
+values from one rule to another, by stack manipulation. Via the `values()` method
+on the parser (which is a call through to the one on the current Context) you 
+obtain access to a stack, with normal operations like `push()`, `pop()`, etc. 
+
+If a rule fails to match, the value stack is returned to the state it was in 
+prior to the rule's invocation. So the side effects of failed operations are 
+never seen. 
+
+Also, the two test predicates `testOf()` and `testNotOf()` always restore the 
+stack to its prior state.
+
+The Values() object is primarily intended to be used to communicate from one 
+rule to another. In effect, the Values() object functions as the call/return 
+stack in normal programming; you can push an object on to communicate with a 
+routine you are going to call, and use it to return values from the same call; 
+but you have to do the same thing each time for a given rule, hence you need 
+*stack stability* across rule calls.    
+
+==== Ref Variables
+
+Another way to manipulate data is through Ref variables. Much like the Values
+object, Ref variables are reset to their init value prior to the rule invocation,
+then reset to the prior value at the end of the rule invocation.
+
+Basically, the Ref variables function like a stack of values, each new rule 
+invocation allocates a new one, and only sees that one, until it is done, at which 
+point it is popped off the stack.
+
+Ref variables are basically desined to commincate within sibling 
+exec() calls in the same rule, that need a different type than the stack 
+is typed as.
+
+
+== Parser Usage
+
+Sample ABC grammar:
+
+[source,java]
+----
+class ABCGrammer extends PegLegParser<Object> {
+
+   public PegLegRule<Object> S() {
+       return seqOf(testOf(seqOf(A(), 'c')), onePlusOf('a'), B(), testNotOf(anyOf("abc")), eof());
+   }
+
+   public PegLegRule<Object> A() {
+       return () -> seqOf('a', optOf(A()), 'b').rule();
+   }
+
+   public PegLegRule<Object> B() {
+       return () -> seqOf('b', optOf(B()), 'c').rule();
+   }
+ }
+----
+
+This implements the standard A(n times)B(n times)C(n times) grammar; see
+Wikipedia's article on PEG parsers for more info.
+
+To use it, one does something like this:
+
+[source,java]
+----
+parser = new ABCGrammar();
+parser.using("AABBCC");
+ReturnValue<Object> ret = parser.parse(parser.S());
+----
+
+In this case, you intialize the parser, give it the string you will be parsing,
+then invoke the rule you wish to parse via the `.parse()` method.
+
+`RuleReturn<?>` gives you lots of info about how the parse engine went; you can get:
+* `matched()` -- if the rule matched.
+* `matchPos()` -- absolute position in input string where the match started
+* `matchLine()` -- line number it match on, 1 is the first line
+* `matchLineOffset()` -- position on the line it matched at (0 first column)
+* `matchLen()` -- length of the matched literal
+* `ctx()` -- supplies context for this match. only useful for last match, valid at end of parsing run.
+
+you can then, in our example above, get the actual matched literal like this:
+
+[source,java]
+----
+parser = new ABCGrammar();
+parser.using("AABBCC");
+ReturnValue<Object> ret = parser.parse(parser.S());
+String match = ret.ctx().match().orElse("NO!!!!!");
+System.out.println(match);
+// or...
+String match = parser.match().orElse("NO!!!!!");
+System.out.println(match);
+----
+
+== JSON Example Grammar
+
+In the PegLegTest class, there is a JSON test grammar using the
+JSONOne JSON library.
+
+This grammar is interesting for a number of reasons. It types it's values as
+`JSONOne.JObject`'s, pushing and popping them off the stack as values are
+parsed. It also uses Ref's for building the map and array objects, and passes
+the Ref's into methods for further processing.
+
+It is also (at the time of writing) 111 lines long vs 337 lines for the hand
+built one, and took very little time to do.   
+
+== Error Handling
+There mostly isn't any yet. Coming, at least enough to be able to tell you 
+what the last match and position was.
+
+== Things to Dislike
+
+There are a bunch of limitations, odd corners, etc.
+
+* I would much rather have user level args and a return value than Refs and
+the Values object, but near as I can tell, I can't do that easily. Ref vars 
+and the Values stack are a simpler, smaller substitute, but I don't love it.
+
+* Error handling isn't. Need to work on that.
+
+* Perf will never be the strong suit. I could memoize, packrat, etc, but
+that would be a lot more work, and certainly not fit the ethos here.
+
+* PegLeg will generate a fair amount of YoungGen memory traffic, I think.
+
+* The line ending management is blah. Literally, whatever you set the line
+separator string to is replaced with newlines only prior to parsing, 
+which is ... a bit over the top. OTOH, greatly simplifies the character 
+parsing code, by making end of line ident easy, and given the backtracking,
+it would be inefficient to do it on the fly.
+
+* The 1000 line limit hurts in other ways; no room to build a Reader impl
+with (essentially) unlimited pushback and random access to characters in
+the stream. So PegLeg needs to have the whole string as input, which 
+stinks.
+
+But in the end, I am not so much interested in The World's Greatest Parser; 
+parsing itself is not a direct interest of mine. So someone else is welcome
+to tear it apart and make it much more efficient. Just not here, 
+unless you can get it under 1000 lines, one file, of course. :-)   

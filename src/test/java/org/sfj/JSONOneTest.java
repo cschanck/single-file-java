@@ -70,6 +70,11 @@ public class JSONOneTest {
     obj = p.singleObject();
     assertThat(obj.getType(), is(JSONOne.Type.STRING));
     assertThat(obj.stringValue(), is("foo is a bar"));
+
+    p = new JSONOne.Parser("\"fo\\'o \\ni\\\"s a bar\"");
+    obj = p.singleObject();
+    assertThat(obj.getType(), is(JSONOne.Type.STRING));
+    assertThat(obj.stringValue(), is("fo'o \ni\"s a bar"));
   }
 
   @Test

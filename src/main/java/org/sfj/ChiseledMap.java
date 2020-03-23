@@ -62,7 +62,6 @@ import static java.nio.file.StandardOpenOption.WRITE;
  * <p>The core methods are ioGet(), ioSet(), and ioUnset(); these throw IOExceptions
  * on ... IO exceptions. The Map methods wrap these methods and throw
  * the unchecked RuntimeIOException.</p>
- *
  * @author cschanck
  */
 public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {
@@ -91,7 +90,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Encode a key/value (here you must handle null values) into a ByteBuffer.
-   *
    * @param <KK>
    * @param <VV>
    */
@@ -102,7 +100,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Decode a byte array into a key/value pair.
-   *
    * @param <KK>
    * @param <VV>
    */
@@ -112,7 +109,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   }
 
   private final CRC32 digest;
-  private final Comparator comp;
+  private final Comparator<K> comp;
   private final FileChannel fc;
   private final ConcurrentSkipListMap<K, Long> map;
   private final ByteBuffer lenBuffer = ByteBuffer.allocate(4);
@@ -129,6 +126,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   /**
    * Default java serialization. Good enough.
    */
+  @SuppressWarnings("rawtypes")
   public static Encoder ENCODE_JAVA_SER = (k, v) -> {
     ByteArrayOutputStream baos = new ByteArrayOutputStream(8 * 1024);
     ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -142,6 +140,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   /**
    * Default java deserialization. Good enough.
    */
+  @SuppressWarnings( { "rawtypes" })
   public static Decoder DECODE_JAVA_SER = (barr) -> {
     ByteArrayInputStream bais = new ByteArrayInputStream(barr);
     ObjectInputStream is = new ObjectInputStream(bais);
@@ -154,13 +153,12 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
     }
   };
 
-  public ChiseledMap(File file, OpenOption open, Comparator comp) throws IOException {
+  public ChiseledMap(File file, OpenOption open, Comparator<K> comp) throws IOException {
     this(file, open, comp, null, null);
   }
 
   /**
    * Constructor. Create a TinyKVMap.
-   *
    * @param file File to use.
    * @param open Open mode
    * @param comp Comparator to use. If null, Comparator.naturalOrder() is used.
@@ -168,16 +166,17 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
    * @param decoder Decoder to use. If null, default Java deserializer is used.
    * @throws IOException on exception
    */
+  @SuppressWarnings("raw,unchecked")
   public ChiseledMap(File file,
                      OpenOption open,
-                     Comparator comp,
+                     Comparator<K> comp,
                      Encoder<K, V> encoder,
                      Decoder<K, V> decoder) throws IOException {
     Objects.requireNonNull(file);
     this.encoder = (encoder == null) ? ENCODE_JAVA_SER : encoder;
     this.decoder = (decoder == null) ? DECODE_JAVA_SER : decoder;
-    this.comp = (comp == null) ? Comparator.naturalOrder() : comp;
-    this.map = new ConcurrentSkipListMap<K, Long>(this.comp);
+    this.comp = (comp == null) ? (a, b) -> ((Comparable<K>) a).compareTo(b) : comp;
+    this.map = new ConcurrentSkipListMap<>(this.comp);
     this.file = file;
     this.digest = new CRC32();
     switch (open) {
@@ -355,7 +354,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Number of entries actually on the disk, even if invalid.
-   *
    * @return number of entries on disk, live and dead.
    */
   public long entriesOnDisk() {
@@ -364,7 +362,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * File being used.
-   *
    * @return file
    */
   public File getFile() {
@@ -373,7 +370,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * File footprint on disk.
-   *
    * @return file size
    * @throws IOException on exception
    */
@@ -384,7 +380,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Close this TinyKVMap.
-   *
    * @throws IOException on exception
    */
   public synchronized void close() throws IOException {
@@ -400,7 +395,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Entry iterator. Necessary slushy with respect to concurrency.
-   *
    * @return iterator of entries.
    */
   public Iterable<Entry<K, V>> entries() {
@@ -456,7 +450,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Flush any buffered changes to disk, fsync.
-   *
    * @throws IOException If you get an IOException, literally no guarantees
    * can be made about the on disk state of the data.
    */
@@ -467,7 +460,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Retrieve the value associated with a specified key.
-   *
    * @param key key value
    * @return value
    * @throws IOException on exception
@@ -482,7 +474,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Clear a value.
-   *
    * @param key key value
    * @return prior value
    * @throws IOException on exception
@@ -498,7 +489,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Associate a key to a value
-   *
    * @param key key value
    * @param v value -- cannot be null.
    * @return true if it replaced a value
@@ -513,7 +503,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   /**
    * Copy only live entries to another file. Blocks writes to this map
    * while snapshotting.
-   *
    * @param f dest file
    * @return new TinyKVMap
    * @throws IOException on exception
@@ -542,7 +531,6 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Unchecked verson of ioSet()
-   *
    * @param key key value
    * @param value value to associate with key
    * @return true if it replaced a value
@@ -567,6 +555,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public V remove(Object key) {
     try {
       return ioUnset((K) key);
@@ -606,8 +595,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   }
 
   @Override
-  public synchronized V computeIfPresent(K key,
-                                         BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+  public synchronized V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
     return super.computeIfPresent(key, remappingFunction);
   }
 
@@ -617,9 +605,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   }
 
   @Override
-  public synchronized V merge(K key,
-                              V value,
-                              BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+  public synchronized V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
     return super.merge(key, value, remappingFunction);
   }
 

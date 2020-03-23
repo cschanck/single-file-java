@@ -22,6 +22,11 @@ import java.util.function.Consumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+/**
+ * Tests 4 of the files together, for fun and profit. CLI arg parsing,
+ * ChiseledMap for storage, ProxyMe to proxy ChiseledMap's map interface,
+ * over the PojoClientServer network pipe.
+ */
 public class UnifiedExampleTest {
 
   @Rule
@@ -41,7 +46,7 @@ public class UnifiedExampleTest {
     // create perisistent map
     ChiseledMap<Integer, String>
       map =
-      new ChiseledMap<>(tmp.newFile(), ChiseledMap.OpenOption.DONT_CARE, Comparator.naturalOrder());
+      new ChiseledMap<>(tmp.newFile(), ChiseledMap.OpenOption.DONT_CARE, null);
 
     // create server
     ProxyMe.Server<ConcurrentMap<Integer, String>>

@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.AbstractList;
 import java.util.AbstractMap;
@@ -44,7 +45,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * as a refresher for how to do old school scanning/parsing. I swear I have an
  * actual book around somewhere, but I could not find it, and I did not feel
  * like digging through Knuth this time.</p>
- *
  * @author cschanck
  */
 public class JSONOne {
@@ -96,6 +96,10 @@ public class JSONOne {
 
     void print(Writer w, int indent, boolean compact) throws IOException;
 
+    default String print(boolean compact) throws IOException { return print(0, compact); }
+
+    default String print() throws IOException { return print(0, true); }
+
     default String print(int indent, boolean compact) throws IOException {
       StringWriter sw = new StringWriter();
       print(sw, indent, compact);
@@ -134,8 +138,7 @@ public class JSONOne {
         return false;
       }
       AbstractJSONObject object = (AbstractJSONObject) o;
-      boolean ret = Objects.equals(obj, object.obj) && type == object.type;
-      return ret;
+      return Objects.equals(obj, object.obj) && type == object.type;
     }
 
     @Override
@@ -192,8 +195,9 @@ public class JSONOne {
     public JString() {
     }
 
-    public JString(String obj) {
-      super(Type.STRING, obj);
+    public JString(CharSequence obj) {
+      super(Type.STRING, obj.toString());
+      Objects.requireNonNull(obj);
     }
 
     @Override
@@ -204,49 +208,7 @@ public class JSONOne {
     @Override
     public void print(Writer w, int indent, boolean compact) throws IOException {
       w.append('"');
-      String s = stringValue();
-
-      final int len = s.length();
-      for (int i = 0; i < len; i++) {
-        char ch = s.charAt(i);
-        switch (ch) {
-          case '"':
-            w.append("\\\"");
-            break;
-          case '\\':
-            w.append("\\\\");
-            break;
-          case '\b':
-            w.append("\\b");
-            break;
-          case '\f':
-            w.append("\\f");
-            break;
-          case '\n':
-            w.append("\\n");
-            break;
-          case '\r':
-            w.append("\\r");
-            break;
-          case '\t':
-            w.append("\\t");
-            break;
-          default:
-            if ((ch <= '\u001F') ||
-                (ch >= '\u007F' && ch <= '\u009F') ||
-                (ch >= '\u2000' && ch <= '\u20FF')) {
-              String ss = Integer.toHexString(ch);
-              w.append("\\u");
-              for (int k = 0; k < 4 - ss.length(); k++) {
-                w.append('0');
-              }
-              w.append(ss.toUpperCase());
-            } else {
-              w.append(ch);
-            }
-        }
-      }
-
+      w.append(escapeString(stringValue()));
       w.append('"');
     }
   }
@@ -289,6 +251,11 @@ public class JSONOne {
     @Override
     public void print(Writer w, int indent, boolean compact) throws IOException {
       w.append("null");
+    }
+
+    @Override
+    public String toString() {
+      return "null";
     }
   }
 
@@ -570,7 +537,9 @@ public class JSONOne {
           w.append(System.lineSeparator());
           w.append(ind2);
         }
-        w.append('"' + obj.getKey() + '"');
+        w.append('"');
+        w.append(obj.getKey());
+        w.append('"');
         w.append(compact ? ":" : " : ");
         obj.getValue().print(w, indent + 1, compact);
       }
@@ -798,13 +767,10 @@ public class JSONOne {
     private Token stringToken() {
       StringBuilder lit = new StringBuilder();
       for (char p = advance(); p != '"'; p = advance()) {
-        switch (p) {
-          case '\\':
-            escape(lit);
-            break;
-          default:
-            lit.append(p);
-            break;
+        if (p == '\\') {
+          escape(lit);
+        } else {
+          lit.append(p);
         }
       }
       return token(TokenType.STRING, lit.toString());
@@ -833,9 +799,6 @@ public class JSONOne {
         case 'f':
           lit.append('\f');
           break;
-        case '"':
-          lit.append('"');
-          break;
         default:
           lit.append(p);
           break;
@@ -848,6 +811,7 @@ public class JSONOne {
    */
   public static class Parser {
     private final Scanner scanner;
+    private NumberFormat nFormat = NumberFormat.getInstance();
 
     public Parser(String input) {
       scanner = new Scanner(input);
@@ -861,34 +825,27 @@ public class JSONOne {
     }
 
     public JObject singleObject() throws ParseException {
-      for (Token p = scanner.nextToken(); !p.type.equals(TokenType.EOF); p = scanner.nextToken()) {
-        switch (p.type) {
-          case LEFT_BRACKET:
-            return array();
-          case LEFT_CURLY:
-            return map();
-          case FALSE:
-            return new JBoolean(false);
-          case TRUE:
-            return new JBoolean(true);
-          case NULL:
-            return new JNull();
-          case STRING:
-            return new JString((String) p.literal);
-          case NUMBER: {
-            try {
-              return new JNumber(Long.parseLong(p.lexeme));
-            } catch (Throwable e) {
-              return new JNumber(Double.parseDouble(p.lexeme));
-            }
-          }
-          case EOF:
-            return null;
-          default:
-            throw error(p, "Unexpected token");
-        }
+      Token p = scanner.nextToken();
+      switch (p.type) {
+        case LEFT_BRACKET:
+          return array();
+        case LEFT_CURLY:
+          return map();
+        case FALSE:
+          return new JBoolean(false);
+        case TRUE:
+          return new JBoolean(true);
+        case NULL:
+          return new JNull();
+        case STRING:
+          return new JString((String) p.literal);
+        case NUMBER:
+          return new JNumber(nFormat.parse(p.lexeme));
+        case EOF:
+          return null;
+        default:
+          throw error(p, "Unexpected token");
       }
-      return null;
     }
 
     private JMap map() throws ParseException {
@@ -961,4 +918,90 @@ public class JSONOne {
       }
     }
   }
+
+  public static CharSequence unescapeString(CharSequence seq) {
+    StringBuilder w = new StringBuilder();
+    final int len = seq.length();
+    for (int pos = 0; pos < len; pos++) {
+      char ch = seq.charAt(pos);
+      if (ch == '\\') {
+        ch = seq.charAt(++pos);
+        switch (ch) {
+          case 'u':
+            String
+              utf =
+              Character.toString(seq.charAt(++pos)) + seq.charAt(++pos) + seq.charAt(++pos) + seq.charAt(++pos);
+            int value = Integer.parseInt(utf, 16);
+            w.append(Character.toChars(value));
+            break;
+          case 'n':
+            w.append('\n');
+            break;
+          case 'r':
+            w.append('\r');
+            break;
+          case 'b':
+            w.append('\b');
+            break;
+          case 't':
+            w.append('\t');
+            break;
+          case 'f':
+            w.append('\f');
+            break;
+          default:
+            w.append(ch);
+            break;
+        }
+      } else {
+        w.append(ch);
+      }
+    }
+    return w;
+  }
+
+  public static CharSequence escapeString(CharSequence seq) {
+    StringBuilder w = new StringBuilder();
+    final int len = seq.length();
+    for (int i = 0; i < len; i++) {
+      char ch = seq.charAt(i);
+      switch (ch) {
+        case '"':
+          w.append("\\\"");
+          break;
+        case '\\':
+          w.append("\\\\");
+          break;
+        case '\b':
+          w.append("\\b");
+          break;
+        case '\f':
+          w.append("\\f");
+          break;
+        case '\n':
+          w.append("\\n");
+          break;
+        case '\r':
+          w.append("\\r");
+          break;
+        case '\t':
+          w.append("\\t");
+          break;
+        default:
+          if ((ch <= '\u001F') || (ch >= '\u007F' && ch <= '\u009F') || (ch >= '\u2000' && ch <= '\u20FF')) {
+            String ss = Integer.toHexString(ch);
+            w.append("\\u");
+            for (int k = 0; k < 4 - ss.length(); k++) {
+              w.append('0');
+            }
+            w.append(ss.toUpperCase());
+          } else {
+            w.append(ch);
+          }
+      }
+    }
+    return w;
+  }
 }
+
+

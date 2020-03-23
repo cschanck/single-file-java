@@ -1,0 +1,62 @@
+= Overview of Current Files
+
+== CASPaxos
+
+This was a challenge; Multi-Paxos and Raft are pretty dang complicated to
+implement, but Single Decree Paxos is pretty interesting, and not nearly as
+complicated. Lots and lots of credit to Denis Rystov for his blog posts and
+eventual paper on what he called CASPaxos.
+
+This class is a paxos framework for KV storage, users have to provide 
+network and storage objects to build a node. 
+ 
+== ChiseledMap
+
+This is a very simple but pretty useful persistent ConcurrentMap implementation.
+At it's core, it has an in-memory map of keys to disk locations, then a append
+only log for storing key+value. The log on disk never gets smaller, though you
+can compact it to another file.
+ 
+== DumbCLIParse
+
+Oh, lord, how many times do I need a quick and dirty CLI parser to throw
+together some one-off scripty Java tool. Well, here it is.
+
+== JSONOne
+
+Single file JSON library. Parser, printer, JSON value objects for programmatic
+use. Not necessary in this world, but fun to write.
+
+== PegLegParser
+
+This is fairly neat; taking inspiration from the Parboiled parser framework, it
+allows you to express a PEG grammar very easily and naturally in Java code
+directly. By using lambdas, you avoid all the needed bytecode manipulation,
+proxying, etc. By using lambdas for callbacks, you sidestep recursive issues as
+well.
+
+By doing things directly in the code, you avoid generated files, learning a new
+syntax, adding another plugin in your build system. 
+
+See the doc in src/docs for more info.
+
+This one is *right* up against the 1000 line limit, btw. Tension between 
+commenting and not was very high.     
+
+== PojoClientServer
+
+Client and Server objects over Java blocking sockets. Expects to send, receive,
+or send-and-receive POJOs, using either java Serialization or a provided
+serialization strategy.
+
+== ProxyMe
+
+Proxy an interface, and then provide a midpoint in the proxy chain where you can
+tap in and ship the invocation to the server site, and then ship the return
+value back and complete the operation. Stupid prototype RPC mechanism if you
+couple it with some network transport backplane.
+
+== Changlog
+- Mar/18/2020 Initial
+- Mar/20/2020 Add JSONOne description
+- Mar/28/2020 Add PegLegParser description

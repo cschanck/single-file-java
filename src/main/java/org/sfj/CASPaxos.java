@@ -27,12 +27,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * <p>This is a super simple Single Decree Paxos implementation as outlined in this
+ * <p>This is a super simple Single-Decree Paxos implementation as outlined in this
  * paper https://arxiv.org/abs/1802.07000 . This allows for consensus mutation
  * of an arbitrary set of key/values. In this case, keys are strings. While
  * it is simple, it is pretty cool and does the job if you need to prototype
  * consensus. For an earlier discussion of the same paper's impl, the one I originally
- * did the implfrom, see this (and associated) link:
+ * did the impl from, see this (and associated) link:
  * http://rystsov.info/2015/09/16/how-paxos-works.html With all due respect the LL,
  * these sources are much more digestible than the original paper.</p>
  *
@@ -40,10 +40,10 @@ import java.util.function.Predicate;
  * specifier. All of the KV, Ballot, and message implementations should be Serializable
  * for simple usage. </p>
  *
- * <p>I bet I screwed something up. not enough testing. Still, should be close.</p>
- *
- * <p>A real impl would need to do lots more stuff, but won't offer any more
- * consensus.</p>
+ * <p>It's notoriously hard to get Paxos of any flavor right, though SDP is
+ * a lot simpler than any of the Multi-Paxos algorithms. And testing is hard.
+ * So it is even money there is a bug here and there, more eyes will help.
+ * Still, should be close.</p>
  *
  * <p>As a consequence of SDP, you'll note you provide a transform function for
  * the value of key; to "read" a value, you need use the identity function, and
@@ -60,6 +60,10 @@ import java.util.function.Predicate;
  * is not a natural fit for CASPaxos, and would need further thought. With
  * a sorted storage, you could do range queries with paxos rounds if you
  * wanted, but thats more than I want to do.</p>
+ *
+ * <p>A more expansive impl could do lots more, like formalize adding and removing nodes
+ * (see the paper for how this proceeds), turning single operations into sequences
+ * of mutations, iteration, sloppy reads, etc. Lots of directions to go.</p>
  *
  * <p>It would be interesting to do a single file Raft impl, but that's actually
  * a lot more complicated, at least so it seems, because log-based consensus
@@ -295,7 +299,7 @@ public class CASPaxos {
     /**
      * Store this kv. (use under lock for this key)
      *
-     * @param kv
+     * @param kv key value to store
      */
     void store(KV kv);
   }
@@ -407,7 +411,7 @@ public class CASPaxos {
     /**
      * Number of nodes that responded.
      *
-     * @return
+     * @return count of responding nodes
      */
     public int getResponses() {
       return responses;
@@ -425,7 +429,7 @@ public class CASPaxos {
     /**
      * Key Value object on success, conficting value on conflict.
      *
-     * @return
+     * @return key value
      */
     public KV getKV() {
       return kv;
@@ -543,7 +547,7 @@ public class CASPaxos {
     if (gCount < quorum) {
       // roll my ballot a lot to have a better shot to overcome the conflict.
       currentBallot = currentBallot.incrementMighty(me);
-      return badResult(prepResults, quorum);
+      return badResult(prepResults);
     }
 
     // has to be at least 1. Get the max key value, it's the consensus basis.
@@ -570,7 +574,7 @@ public class CASPaxos {
     if (gCount < quorum) {
       // roll my ballot a lot to have a better shot to overcome the conflict.
       currentBallot = currentBallot.incrementMighty(me);
-      return badResult(prepResults, quorum);
+      return badResult(prepResults);
     }
 
     // cool, it worked, return consensus value
@@ -578,13 +582,11 @@ public class CASPaxos {
 
   }
 
-  private RoundResult badResult(List<RoundStepResult> results, int quorum) {
+  private RoundResult badResult(List<RoundStepResult> results) {
     Optional<RoundStepResult>
       topBad =
       results.stream().filter(rss -> !rss.isOk()).max(Comparator.comparing(o -> o.getKV().getBallot()));
-    if (topBad.isPresent()) {
-      return new RoundResult(PaxosResult.CONFLICT, topBad.get().getKV(), results.size());
-    }
-    return new RoundResult(PaxosResult.TIMEOUT, null, results.size());
+    return topBad.map(result -> new RoundResult(PaxosResult.CONFLICT, result.getKV(), results.size()))
+             .orElseGet(() -> new RoundResult(PaxosResult.TIMEOUT, null, results.size()));
   }
 }

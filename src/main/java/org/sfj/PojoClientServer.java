@@ -44,7 +44,6 @@ import java.util.function.Consumer;
  *
  * <p>See {@link PojoClientServer.Server()} and {@link PojoClientServer.Client()}
  * for more info</p>
- *
  * @author cschanck
  */
 public class PojoClientServer {
@@ -96,6 +95,7 @@ public class PojoClientServer {
     private final Encoder encoder;
     private final Decoder decoder;
     private final Consumer<SingleConnection> onClose;
+    private volatile Throwable lastIgnoredThrowable = null;
 
     public SingleConnection(int id,
                             Socket client,
@@ -118,8 +118,15 @@ public class PojoClientServer {
     }
 
     /**
+     * Get the last ignored exception
+     * @return throwable, or null
+     */
+    public Throwable getLastIgnoredThrowable() {
+      return lastIgnoredThrowable;
+    }
+
+    /**
      * ID for this connection/
-     *
      * @return id
      */
     public int getId() {
@@ -141,18 +148,19 @@ public class PojoClientServer {
       try {
         client.close();
       } catch (IOException e) {
+        lastIgnoredThrowable = e;
       }
       try {
         onClose.accept(this);
       } catch (Throwable t) {
+        lastIgnoredThrowable = t;
       }
     }
 
     /**
      * Send a message, don't wait.
-     *
-     * @param msg
-     * @throws IOException
+     * @param msg message object
+     * @throws IOException on send failure
      */
     public synchronized void send(Object msg) throws IOException {
       try {
@@ -168,10 +176,9 @@ public class PojoClientServer {
 
     /**
      * Send and receive a message; wait until done.
-     *
-     * @param msg
-     * @return
-     * @throws IOException
+     * @param msg message to send
+     * @return object you received as answer
+     * @throws IOException on read/write exception
      */
     public synchronized Object sendAndReceive(Object msg) throws IOException {
       send(msg);
@@ -185,9 +192,8 @@ public class PojoClientServer {
 
     /**
      * Just receive a message.
-     *
      * @return message object
-     * @throws IOException
+     * @throws IOException on read exception
      */
     public synchronized Object receive() throws IOException {
       try {
@@ -223,12 +229,12 @@ public class PojoClientServer {
     private AtomicInteger clientIdGen = new AtomicInteger(0);
     private ConcurrentHashMap<Integer, SingleConnection> incomingClients = new ConcurrentHashMap<>();
     private volatile boolean alive = true;
+    private volatile Throwable lastIgnoredThrowable = null;
 
     /**
      * Constructor for a server object. Listens on a port, accepts connections, and allocates
      * single connection for those accepted connections. Invokes a callback to notify the
      * user of those new connections.
-     *
      * @param name Name of this server.
      * @param listenPort Port to listen on
      * @param callback Callback for accepting new connections.
@@ -241,18 +247,13 @@ public class PojoClientServer {
      * Constructor for a server object. Listens on a port, accepts connections, and allocates
      * single connection for those accepted connections. Invokes a callback to notify the
      * user of those new connections.
-     *
      * @param name Name of this server.
      * @param listenPort Port to listen on.
      * @param encoder Encoder
      * @param decoder Decoder
      * @param callback Callback for accepting new connections.
      */
-    public Server(String name,
-                  int listenPort,
-                  Encoder encoder,
-                  Decoder decoder,
-                  Consumer<SingleConnection> callback) {
+    public Server(String name, int listenPort, Encoder encoder, Decoder decoder, Consumer<SingleConnection> callback) {
       this.name = name;
       this.listenPort = listenPort;
       this.encoder = encoder == null ? Encoder.SERIALIZE : encoder;
@@ -270,18 +271,24 @@ public class PojoClientServer {
 
     /**
      * Get the name. Useful cosmetics.
-     *
-     * @return
+     * @return name
      */
     public String getName() {
       return name;
     }
 
     /**
+     * Get the last ignored exception
+     * @return throwable, or null
+     */
+    public Throwable getLastIgnoredThrowable() {
+      return lastIgnoredThrowable;
+    }
+
+    /**
      * Start the server.
-     *
      * @return this server.
-     * @throws IOException
+     * @throws IOException on failure to sonnect
      */
     public synchronized Server startServer() throws IOException {
       if (listening) {
@@ -298,6 +305,7 @@ public class PojoClientServer {
             try {
               serverSocket.close();
             } catch (IOException ex) {
+              lastIgnoredThrowable = null;
             }
             break;
           }
@@ -309,8 +317,7 @@ public class PojoClientServer {
 
     /**
      * Check if we are currently listening.
-     *
-     * @return
+     * @return true if we are listening
      */
     public boolean isListening() {
       return listening;
@@ -323,14 +330,13 @@ public class PojoClientServer {
         incomingClients.put(cl.getId(), cl);
         callback.accept(cl);
       } catch (IOException e) {
-
+        lastIgnoredThrowable = e;
       }
     }
 
     /**
      * Return current connections, in no particular order.
-     *
-     * @return
+     * @return collection of connections
      */
     public Collection<SingleConnection> getConnections() {
       return Collections.unmodifiableCollection(incomingClients.values());
@@ -353,6 +359,8 @@ public class PojoClientServer {
           try {
             cl.getSocket().close();
           } catch (IOException e) {
+            lastIgnoredThrowable = e;
+
           }
         });
         incomingClients.clear();
@@ -365,6 +373,7 @@ public class PojoClientServer {
         try {
           serverSocket.close();
         } catch (Exception e) {
+          lastIgnoredThrowable = e;
         }
       }
     }
@@ -380,10 +389,10 @@ public class PojoClientServer {
     private final Encoder encoder;
     private final Decoder decoder;
     private volatile boolean alive = true;
+    private volatile Throwable lastIgnoredThrowable = null;
 
     /**
      * Create client bundle.
-     *
      * @param name Name
      */
     public Client(String name) {
@@ -392,7 +401,6 @@ public class PojoClientServer {
 
     /**
      * Create client bundle.
-     *
      * @param name Name.
      * @param encoder Encoder. Will use serialization if null.
      * @param decoder Decoder. Will use serialization if null.
@@ -405,7 +413,6 @@ public class PojoClientServer {
 
     /**
      * Get the name.
-     *
      * @return name
      */
     public String getName() {
@@ -414,19 +421,17 @@ public class PojoClientServer {
 
     /**
      * Create a managed outgoing client.
-     *
      * @param dest Destination.
      * @param connectTimeout timout for connection in millis
      * @return connection
-     * @throws IOException
+     * @throws IOException one connection failure
      */
-    public SingleConnection createOutgoingClient(InetSocketAddress dest,
-                                                 int connectTimeout) throws IOException {
+    public SingleConnection createOutgoingClient(InetSocketAddress dest, int connectTimeout) throws IOException {
       Socket sock = new Socket();
       sock.connect(dest, connectTimeout);
       SingleConnection
         ret =
-        new SingleConnection(clientIdGen.incrementAndGet(), sock, encoder, decoder, (r) -> deregisterClient(r));
+        new SingleConnection(clientIdGen.incrementAndGet(), sock, encoder, decoder, this::deregisterClient);
       outgoingClients.put(ret.getId(), ret);
       return ret;
     }
@@ -446,10 +451,19 @@ public class PojoClientServer {
           try {
             cl.getSocket().close();
           } catch (IOException e) {
+            lastIgnoredThrowable = e;
           }
         });
         outgoingClients.clear();
       }
+    }
+
+    /**
+     * Get the last ignored exception
+     * @return throwable, or null
+     */
+    public Throwable getLastIgnoredThrowable() {
+      return lastIgnoredThrowable;
     }
   }
 
