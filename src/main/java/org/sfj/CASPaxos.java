@@ -497,6 +497,8 @@ public class CASPaxos {
     lock.lock();
     try {
       if (acc.kv.ballot.compareTo(storage.getPromise(acc.kv.key)) >= 0) {
+        // try and promise
+        storage.promise(acc.kv.key, acc.kv.ballot);
         // cool, accept the value
         storage.store(acc.kv);
         response.accept(new RoundStepResult(true, acc.kv));
