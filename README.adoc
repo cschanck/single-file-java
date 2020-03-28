@@ -19,17 +19,14 @@ From scratch.
 Software minimalism is alive!
 
 == Ground Rules
+
 * 1000 lines in a file, no more than 120 chars on a line, commented enough 
-to be useful. Yes, comments count toward your 1000 lines. (Including license
-header)
-* 1 piece of functionality; i.e., collections of random misc utils don't count.
-* Feel free to think about building "mini-frameworks". For example, the
-LittleCASPaxos implementation delegates all of the network and storage
-functionality to some interfaces a user would have to provide; network
-transport and key-value persistence are not actually part of the CASPaxos
-remit.
+to be useful.
+** This led to minor formatting tricks in the case of PegLegParser, which is
+juuuust barely under 1000 lines.
 * *No dependencies* beyond test code deps for your single test file.
 * *APACHE 2.0 License*. Thank you.
+* 1 piece of functionality; i.e., collections of random misc utils don't count.
 * Not production pretty, necessarily. These classes are best regarded as erector
 set pieces for rapid prototyping, not production deployment. This means you are free
 to:
@@ -55,6 +52,13 @@ how to use the file.
 The priority is on working, reliable code, suitable for prototyping something
 larger. Performance is not a top priority.
 
+Feel free to think about building "mini-frameworks". For example, the
+LittleCASPaxos implementation delegates all of the network and storage
+functionality to some interfaces a user would have to provide; network transport
+and key-value persistence are not actually part of the LittleCASPaxos remit.
+
+== How Did We Get Here?
+
 So, the way I started this was because I needed quick and dirty
 persistence, and some recent annoyances with third-party deps made me decide to
 see how fast I could build a thing. It was a short hop from "how fast" to "how
@@ -76,7 +80,11 @@ that I could do a Single-Decree Paxos impl in under 300 SLOCS, for example, but
 the bounded nature of the project helped me stay focused.
 
 As a friend of mine, an awesome dev, would say: "I want to go code in a cave". 
-Alex, here is your 1000 line cave! 
+Alex, here is your 1000 line cave, go bang some rocks together!
+
+Another, very minor motivation was to refute the constant whining about
+how verbose Java is. Java can be verbose, but that is also part of its strength.
+But even with the verbosity, you can write a lot with a little code.
 
 == Usage & Docs
 See the Overview doc for a description of current files. See specific docs in 
@@ -89,11 +97,16 @@ Enjoy.
  
 == Contributing
 
-Feel free! Push a PR, we'll talk. Try and keep the guidelines in mind, obvs.   
+Feel free! Push a PR, or just file an Issue as an idea. Try and keep the
+guidelines in mind, obvs, but aim high.
 
-== Ideas
-Well, sure. A really tight REST framework that can put up a REST endpoint fast?
-A servlet container, perhaps for a single WAR, for easy testing? Something
-mathematical/numerical in nature (not my speciality)? No reason not to write
-a full min web server in one file? A curl/wget-like tool? Lots of
-possibilities.
+== Ideas Well, sure, lots out there. A really tight REST framework that can put
+up a REST endpoint fast? A servlet container, perhaps for a single WAR, for easy
+testing? Something mathematical/numerical in nature (not my speciality)? No
+reason not to write a full min web server in one file? A curl/wget-like tool?
+Lots of possibilities.
+
+One thing I've thought of doing is cherry picking lots of Knuth-isms around
+searching and sorting on disk and doing general impls, for example.
+
+And so on and so on.

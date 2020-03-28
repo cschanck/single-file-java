@@ -126,7 +126,7 @@ implement `PegLegRule`.
 can execute any arbitrary code needed to build things from the parse run,
 (more on this later). Returning true means parsing continues, false indicates 
 a failed match. 
-* a __Runnable__, which gets wrapped in an `exec(Runnnable)` call. Note that the 
+* a `Runnable`, which gets wrapped in an `exec(Runnnable)` call. Note that the
 exec(Runnable) method provides an easy way to define these as lambdas 
 without needing to cast the lambda. 
 
