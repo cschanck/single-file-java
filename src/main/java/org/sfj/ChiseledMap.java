@@ -166,7 +166,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
    * @param decoder Decoder to use. If null, default Java deserializer is used.
    * @throws IOException on exception
    */
-  @SuppressWarnings("raw,unchecked")
+  @SuppressWarnings({"raw","unchecked"})
   public ChiseledMap(File file,
                      OpenOption open,
                      Comparator<K> comp,
