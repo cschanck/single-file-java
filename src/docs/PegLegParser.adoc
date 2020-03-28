@@ -341,6 +341,7 @@ In this case, you intialize the parser, give it the string you will be parsing,
 then invoke the rule you wish to parse via the `.parse()` method.
 
 `RuleReturn<?>` gives you lots of info about how the parse engine went; you can get:
+
 * `matched()` -- if the rule matched.
 * `matchPos()` -- absolute position in input string where the match started
 * `matchLine()` -- line number it match on, 1 is the first line
