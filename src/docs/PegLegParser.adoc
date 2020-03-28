@@ -115,6 +115,7 @@ Let's pick the best rule; the `seqOf(Object... rules)` rule.
 
 The objects in the argument list to `seqOf()` (and all the other provided non-terminal 
 rules) can be of a few different types:
+
 * an instance of `PegLegRule`
 ** all of the provided PegLeg rules, such as `ch()`, `anyOf()`, `zeroPlusOf()`, etc,
 implement `PegLegRule`.
