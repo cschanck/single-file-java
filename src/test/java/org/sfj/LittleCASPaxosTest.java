@@ -1,9 +1,9 @@
 package org.sfj;
 
 import org.junit.Test;
-import org.sfj.CASPaxos.Ballot;
-import org.sfj.CASPaxos.Node;
-import org.sfj.CASPaxos.RoundStepResult;
+import org.sfj.LittleCASPaxos.Ballot;
+import org.sfj.LittleCASPaxos.Node;
+import org.sfj.LittleCASPaxos.RoundStepResult;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -27,13 +27,13 @@ import java.util.function.Predicate;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.sfj.CASPaxos.Acceptance;
-import static org.sfj.CASPaxos.KV;
-import static org.sfj.CASPaxos.Network;
-import static org.sfj.CASPaxos.Prepare;
-import static org.sfj.CASPaxos.Storage;
+import static org.sfj.LittleCASPaxos.Acceptance;
+import static org.sfj.LittleCASPaxos.KV;
+import static org.sfj.LittleCASPaxos.Network;
+import static org.sfj.LittleCASPaxos.Prepare;
+import static org.sfj.LittleCASPaxos.Storage;
 
-public class CASPaxosTest {
+public class LittleCASPaxosTest {
   enum State {
     WORKING,
     TIMEOUT,
@@ -43,14 +43,14 @@ public class CASPaxosTest {
   // stupid perfect network via callbacks, with disruption
   class CallbackNetwork implements Network {
 
-    private final Function<Node, CASPaxos> paxoses;
+    private final Function<Node, LittleCASPaxos> paxoses;
     private final ExecutorService pool;
     private final ScheduledExecutorService sched;
     private List<Node> allNodes;
     private Map<Node, State> prepStates = new HashMap<>();
     private Map<Node, State> accStates = new HashMap<>();
 
-    public CallbackNetwork(Function<Node, CASPaxos> paxoses, Node... nodes) {
+    public CallbackNetwork(Function<Node, LittleCASPaxos> paxoses, Node... nodes) {
       this.paxoses = paxoses;
       this.allNodes = Arrays.asList(nodes);
       this.pool = Executors.newCachedThreadPool();
@@ -100,7 +100,7 @@ public class CASPaxosTest {
             // do the job
             pool.submit(() -> {
               try {
-                CASPaxos p = paxoses.apply(n);
+                LittleCASPaxos p = paxoses.apply(n);
                 if (p != null) {
                   Consumer<RoundStepResult> cb = (r) -> {
                     res.add(r);
@@ -240,7 +240,7 @@ public class CASPaxosTest {
     // test a Paxos network
     // 5 node network. Perfect immediate delivery/response
     int N = 5;
-    final HashMap<Node, CASPaxos> paxosMap = new HashMap<>();
+    final HashMap<Node, LittleCASPaxos> paxosMap = new HashMap<>();
     final Node[] nodes = new Node[N];
     for (int i = 0; i < N; i++) {
       nodes[i] = new NodeImpl(i);
@@ -248,7 +248,7 @@ public class CASPaxosTest {
     CallbackNetwork net = new CallbackNetwork((n) -> paxosMap.get(n), nodes);
     for (int i = 0; i < N; i++) {
       MapStorage stor = new MapStorage();
-      CASPaxos paxos = new CASPaxos(net, nodes[i], stor);
+      LittleCASPaxos paxos = new LittleCASPaxos(net, nodes[i], stor);
       paxosMap.put(nodes[i], paxos);
     }
 
@@ -257,22 +257,22 @@ public class CASPaxosTest {
     net.setPrepState(nodes[3], State.TIMEOUT);
 
     int quorum = nodes.length / 2 + 1;
-    CASPaxos oneNode = paxosMap.values().iterator().next();
+    LittleCASPaxos oneNode = paxosMap.values().iterator().next();
 
-    CASPaxos.RoundResult res = oneNode.paxos("test", addOne(), quorum, 1, TimeUnit.SECONDS);
-    assertThat(res.getResult(), is(CASPaxos.PaxosResult.OK));
+    LittleCASPaxos.RoundResult res = oneNode.paxos("test", addOne(), quorum, 1, TimeUnit.SECONDS);
+    assertThat(res.getResult(), is(LittleCASPaxos.PaxosResult.OK));
     assertThat(res.getKV().getVal(), is(1));
 
     res = oneNode.paxos("test", addOne(), quorum, 1, TimeUnit.SECONDS);
-    assertThat(res.getResult(), is(CASPaxos.PaxosResult.OK));
+    assertThat(res.getResult(), is(LittleCASPaxos.PaxosResult.OK));
     assertThat(res.getKV().getVal(), is(2));
 
     res = oneNode.paxos("test", ident(), quorum, 1, TimeUnit.SECONDS);
-    assertThat(res.getResult(), is(CASPaxos.PaxosResult.OK));
+    assertThat(res.getResult(), is(LittleCASPaxos.PaxosResult.OK));
     assertThat(res.getKV().getVal(), is(2));
 
     res = oneNode.paxos("test", timesTwo(), quorum, 1, TimeUnit.SECONDS);
-    assertThat(res.getResult(), is(CASPaxos.PaxosResult.OK));
+    assertThat(res.getResult(), is(LittleCASPaxos.PaxosResult.OK));
     assertThat(res.getKV().getVal(), is(4));
 
     // introduce more fail
@@ -281,7 +281,7 @@ public class CASPaxosTest {
     net.setAccState(nodes[4], State.FAIL);
 
     res = oneNode.paxos("test", ident(), quorum, 1, TimeUnit.SECONDS);
-    assertThat(res.getResult(), is(CASPaxos.PaxosResult.TIMEOUT));
+    assertThat(res.getResult(), is(LittleCASPaxos.PaxosResult.TIMEOUT));
   }
 
   private static Function<Object, Object> addOne() {

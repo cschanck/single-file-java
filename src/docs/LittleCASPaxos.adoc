@@ -1,0 +1,113 @@
+= LittleCASPaxos!
+
+Paxos is, traditionally, not the simplest algorithm to reason about. It's not
+so awful, really, but it takes some work. And most of the time people talk about
+Paxos, they end up really talking about Multi-Paxos or one of its derivatives.
+Which are more complicated, being distribute log/state machine algorithms, as is
+Raft, for example.
+
+A very interesting series of blog posts by https://http://rystsov.info/[Dennis Rystov]
+introduced me to _Single Decree Paxos_, which is more digestible. It has drawbacks
+for sure. For example, since it is not a log based system, expansion and contraction
+can be harder to do in terms of data movement. Etc.
+
+But SDP is pretty easy to understand, and eventually Mr. Rystov published a
+very nice paper about his implementation, https://https://arxiv.org/abs/1802.07000[CASPaxos].
+
+I had done a prior implementation based off his blog posts, but the paper fine
+tunes things a bit further. I had some of my own ideas as well, and so I took up
+the challenge to implement a framework for CASPaxos as a single file.
+
+== How Single Decree Paxos Works
+
+IMPORTANT: Please, look elsewhere for a thorough grounding. This is a very sloppy
+overview.
+
+CASPaxos imagine Paxos rounds over an infinite set of key/value pairs.
+
+In a nutshell, SDP/CASPaxos consists of 2 rounds, a *Prepare* phase, where an
+acceptor agrees to promise to process a request at a certain Ballot level, and
+an *Accept* phase where the new value is stored. These two phases are managed by
+a *Proposer*.
+
+The Proposer starts the prepare phase by sending a prepare message to every node
+in the cluster along with a ballot to promise. Each node's *Acceptor* that has
+not promised a higher ballot responds affirmatively and saves the promise. The
+proposer gathers all the responses until it has a quorum (N/2+1) agreeing (happy
+path).
+
+The proposer then applies the mutation function to the current value (null if it
+does not exist). Then it sends an accept message with the new value to each of
+the nodes' acceptors.
+
+Each acceptor then accepts the message or not, depending on if
+the original promise is still current. If not, conflict. If yes, ack
+with a success.
+
+The proposer then waits for a quorum of Acks -- if they come, then the
+mutation has succeeded. If not, it *might* have succeeded, depending on whether
+a quorum of conflicts are received, or if simply too many nodes don't respond.
+
+One interesting thing about this is that to do a read, one must do a full
+round trip write in most cases; you do a mutation with the identity function.
+Else you risk violating linearizability.
+
+You could do a "slushy read", polling all of the nodes, and if you get
+a quorum of the same values, I believe you could rely on it, but that
+is an optimization. I suspect the ample Paxos literature could tell you.
+
+The CASPaxos paper also lists a number of optimizations that can be done
+to get you to primarily 1 RTT performance, etc. None of that is relevant for
+this impl.
+
+== LittleCASPaxos
+
+LittleCASPaxos implements a specific subset of the CASPaxos paper, plus some
+extensions. It conflates *Proposer*, *Acceptor*, and *Learner* (storage) members
+into single nodes.
+
+String keys, arbitrary object values.
+
+It allows for striping of promises and locking across the keyspace, so that
+simultaneous rounds can be going on at the same time without interfering. In a
+past impl this was a really useful optimization; since any node can be a
+proposer, if you pick your proposer cleverly, you can get every Node in the
+system doing a transaction at the same time, with no problems. Since, in SDP,
+separate keys are entirely independent (unlike a distributed log impl like
+Multi-Paxos), you can do this.
+
+An interface for Node objects, `Node`, exists. Node objects have to supply
+a node id that is unique and stable across a single runtime of the node.
+
+`KV` is an interface for key/value pairs. Not complicated.
+
+We abstract the storage and network functionality into two interfaces called,
+er, `Storage` and `Network`. Shocking, I know. Storage is responsible for
+retrieving and setting KV objects, providing striped locking and striped promises.
+ Storage instances are repsonsible for ... storing them.
+
+`Network` is basically a broadcast interface for sending two kinds of messages,
+proposals and acceptances. Network instances are responsible for
+serializing/deserializing KV objects for network transport.
+
+== Usage
+
+To use it, you extend `LittleCASPaxos`, providing each node with a Network, a Storage,
+and a Node denoting itself. Then you initiate transactions using the
+
+[source,java]
+----
+RoundResult paxos(String key,
+                  Function<Object, Object> transform,
+                  int quorum,
+                  long roundTimeout,
+                  TimeUnit units);
+----
+
+If you want to do a read, provide `val->val` as the identity operation.
+
+See the LittleCASPaxosTest class for an example of usage using in memory
+storage, and direct communication (complete with failures).
+
+Also see the UnifiedExampleTest for an example using actual socket comms
+and persistent storage.

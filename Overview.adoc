@@ -1,15 +1,5 @@
 = Overview of Current Files
 
-== CASPaxos
-
-This was a challenge; Multi-Paxos and Raft are pretty dang complicated to
-implement, but Single Decree Paxos is pretty interesting, and not nearly as
-complicated. Lots and lots of credit to Denis Rystov for his blog posts and
-eventual paper on what he called CASPaxos.
-
-This class is a paxos framework for KV storage, users have to provide 
-network and storage objects to build a node. 
- 
 == ChiseledMap
 
 This is a very simple but pretty useful persistent ConcurrentMap implementation.
@@ -26,6 +16,16 @@ together some one-off scripty Java tool. Well, here it is.
 
 Single file JSON library. Parser, printer, JSON value objects for programmatic
 use. Not necessary in this world, but fun to write.
+
+== LittleCASPaxos
+
+This was a challenge; Multi-Paxos and Raft are pretty dang complicated to
+implement, but Single Decree Paxos is pretty interesting, and not nearly as
+complicated. Lots and lots of credit to Denis Rystov for his blog posts and
+eventual paper on what he called CASPaxos.
+
+This class is a paxos framework for KV storage, users have to provide
+network and storage objects to build a node.
 
 == PegLegParser
 
@@ -55,8 +55,3 @@ Proxy an interface, and then provide a midpoint in the proxy chain where you can
 tap in and ship the invocation to the server site, and then ship the return
 value back and complete the operation. Stupid prototype RPC mechanism if you
 couple it with some network transport backplane.
-
-== Changlog
-- Mar/18/2020 Initial
-- Mar/20/2020 Add JSONOne description
-- Mar/27/2020 Add PegLegParser description

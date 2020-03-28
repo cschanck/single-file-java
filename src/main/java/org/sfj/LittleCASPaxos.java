@@ -50,7 +50,7 @@ import java.util.function.Predicate;
  * run the full 2 stage paxos round, else you lose linearizability. Note that
  * we do none of the optimizations outlined in the paper.</p>
  *
- * <p>In this case, each node is a {@link CASPaxos} object. If you wanted a remote
+ * <p>In this case, each node is a {@link LittleCASPaxos} object. If you wanted a remote
  * client, then use some protocol to remotely invoke the
  * {@link #paxos(String, Function, int, long, TimeUnit)} method and return the
  * result. Note that in SDP, you can start a round from any node, there are no
@@ -71,7 +71,7 @@ import java.util.function.Predicate;
  *
  * @author cschanck
  */
-public class CASPaxos {
+public class LittleCASPaxos {
   /**
    * Node interface. Impl as needed.
    */
@@ -460,7 +460,7 @@ public class CASPaxos {
    * @param me This node
    * @param storage Storage provider.
    */
-  public CASPaxos(Network net, Node me, Storage storage) {
+  public LittleCASPaxos(Network net, Node me, Storage storage) {
     this.net = net;
     this.me = me;
     this.storage = storage;
@@ -578,7 +578,7 @@ public class CASPaxos {
     }
 
     // cool, it worked, return consensus value
-    return new CASPaxos.RoundResult(PaxosResult.OK, newKV, gCount);
+    return new LittleCASPaxos.RoundResult(PaxosResult.OK, newKV, gCount);
 
   }
 
