@@ -100,7 +100,9 @@ Enjoy.
 Feel free! Push a PR, or just file an Issue as an idea. Try and keep the
 guidelines in mind, obvs, but aim high.
 
-== Ideas Well, sure, lots out there. A really tight REST framework that can put
+== Ideas Well, sure, lots out there.
+
+A really tight REST framework that can put
 up a REST endpoint fast? A servlet container, perhaps for a single WAR, for easy
 testing? Something mathematical/numerical in nature (not my speciality)? No
 reason not to write a full min web server in one file? A curl/wget-like tool?
