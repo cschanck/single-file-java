@@ -46,22 +46,22 @@ import static java.nio.file.StandardOpenOption.WRITE;
  * on writes. Reads are unsynchronized, though the underlying FileChannel is shared.
  * Deletes do not reclaim filespace; they simply stop referencing the
  * block. Writes are CRC checked on restart, file is truncated to match the valid
- * length.</p>
+ * length.
  *
  * <p>This class is useful for prototyping when you need a persistent store and don't
  * want to bother much. You provide a file, and optionally an encoder and decoder, and
  * you can shove Objects in a sorted map structure that will serve get()s from disk,
  * and save mutations to disk. Basically, every change is written to a log, with crc.
  * Old entries are just left there; no garbage collection is done. So it is not
- * useful for massive stores, or fast changing ones, but for prototyping it's quite useful.</p>
+ * useful for massive stores, or fast changing ones, but for prototyping it's quite useful.
  *
  * <p>Null values are not allowed. An in-memory sorted list keeps keys/disk addresses
  * for lookup. On restart, the entire log file is traversed, rebuilding the in memory
- * picture of keys to locations.</p>
+ * picture of keys to locations.
  *
  * <p>The core methods are ioGet(), ioSet(), and ioUnset(); these throw IOExceptions
  * on ... IO exceptions. The Map methods wrap these methods and throw
- * the unchecked RuntimeIOException.</p>
+ * the unchecked RuntimeIOException.
  * @author cschanck
  */
 public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {

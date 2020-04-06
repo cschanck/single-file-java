@@ -71,9 +71,9 @@ public class PegLegParserTest {
    * <p>Two things of interest. Note the use of the lambda form in methods like
    * {@link #expression()} because there is a path that is recursive. While other
    * methods like {@link #number()} } are terminal, and therefore do not
-   * need to be a lambda.</p>
+   * need to be a lambda.
    * <p>Also, you see the use of Ref variables and exec() calls to actually
-   * calculate the values.</p>
+   * calculate the values.
    */
   static class CalcParser extends PegLegParser<Long> {
 
