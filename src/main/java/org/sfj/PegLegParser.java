@@ -29,19 +29,17 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 
 /**
- * <p>This class implements a complete PEG parser, a la https://en.wikipedia.org/wiki/Parsing_expression_grammar
+ * <p>This class implements a complete PEG parser, a la https://en.wikipedia.org/wiki/Parsing_expression_grammar </p>
  * <p>I have long been a big fan of the Parboiled parser framework ( https://github.com/sirthias/parboiled/wiki ),
  * especially for quick and dirty things. But I also always disliked the proxying/byte code manipulation
- * in it. A looong while ago I looked at building one myself with just anon classes, around Java 6
- * timeframe, but it was super clunky. For a while now I have wanted to take another swing at it
- * using lambdas; it seemed like a way to do all of what Parboiled (and Rats!, etc) did without
- * needing anything too exotic.
- * <p>Turns out, yup, works pretty well. An approach like this will never be the quickest parser
- * to run, I mean, there is no packrat processing, no memoization, etc. So it is not a speed
- * demon. But the intention was to make it super expressive and a speed demon to write parsers.
- * <p>See the PegLeParser.adoc file for an overview on how it works, and see the unit test
- * class for a set of example grammars.
- *
+ * in it. A looong while ago I looked at building one myself with just anon classes, around Java 6 timeframe, but
+ * it was super clunky. For a while now I have wanted to take another swing at it using lambdas; it seemed like a way
+ * to do all of what Parboiled (and Rats!, etc) did without needing anything too exotic. </p>
+ * <p>Turns out, yup, works pretty well. An approach like this will never be the quickest parser to run,
+ * I mean, there is no packrat processing, no memoization, etc. So it is not a speed demon. But
+ * the intention was to make it super expressive and a speed demon to write parsers in.</p>
+ * <p>For Object... rules, you can either use a String literal, a char literal, one
+ * of the built in defined rules, an Exec lambda, or a Runnable.</p>
  * @param <V> Value stack type.
  * @author cschanck
  */
@@ -155,7 +153,17 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
 
     public Source(CharSequence src, String lineSep) {
       this.state = new SourceState();
-      this.src = src;
+      if (lineSep.equals("\n")) { // linux, all is good.
+        this.src = src;
+      } else { // grind eol's down to newlines.
+        StringBuilder sb = new StringBuilder(src.length());
+        boolean first = true;
+        for (String s : src.toString().split(lineSep)) {
+          if (first) {first = false;} else {sb.append('\n');}
+          sb.append(s);
+        }
+        this.src = sb;
+      }
     }
 
     public boolean atEnd() { return state.bufferPos >= src.length(); }
@@ -464,8 +472,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
 
     @Override
     public String toString() {
-      return String.format("RuleReturn match=%s(%s) @ %d for %d (line %d, nextPos=%d)", matched, consumed, matchPos,
-        matchLen, matchLine, matchLineOffset);
+      return String.format("RuleReturn match=%s(%s) @ %d for %d (line %d, nextPos=%d)", matched, consumed, matchPos, matchLen, matchLine, matchLineOffset);
     }
 
   }
@@ -534,7 +541,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   }
 
   private RuleReturn<V> eolRule() {
-    return str(lineSep).rule();
+    return ch('\n').rule();
   }
 
   private RuleReturn<V> wsRule() {

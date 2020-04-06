@@ -34,17 +34,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <p>Single class containing classes for representing JSON objects
  * programmatically. Includes pretty print and parser. NOT like the world
  * needs another JSON package. But... 1) it was an interesting exercise
- * 2) perhaps someone needs something to adapt from, etc.
- * <p>Very vanilla. Null, Boolean, String, Number, Array and Map objects.
+ * 2) perhaps someone needs something to adapt from, etc.</p>
+ * <p>Very vanilla. Null, Boolean, String, Number, Array and Map objects.</p>
  * <p>Parser (well, the scanner actually) is inefficient for large objects;
  * it expects a single String object for input. So there is that. Would be
- * not too tough to remedy, but you'd need pushback/lookahead etc.
- * <p>Should handle backslash escaping properly, \uabcd unicode, etc.
+ * not too tough to remedy, but you'd need pushback/lookahead etc.</p>
+ * <p>Should handle backslash escaping properly, \uabcd unicode, etc.</p>
  * <p>Also, in this day and age of awesome parser frameworks, it was
  * really fun to write a parser by hand. I used: http://www.craftinginterpreters.com/
  * as a refresher for how to do old school scanning/parsing. I swear I have an
  * actual book around somewhere, but I could not find it, and I did not feel
- * like digging through Knuth this time.
+ * like digging through Knuth this time.</p>
  * @author cschanck
  */
 public class JSONOne {

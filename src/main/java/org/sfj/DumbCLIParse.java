@@ -28,28 +28,28 @@ import java.util.regex.Pattern;
  * <p>This is in honor of a past boss of mine, a crackerjack dev, who struggled
  * (one time! but sadly on a projected screen... :-) ) with regular expressions.
  * Here we have a tiny but useful command line arg parser based entirely on regular
- * expressions. This one is for you, Louis.
+ * expressions. This one is for you, Louis.</p>
  *
  * <p>The way you use this is by first call {@link #args} with the main() args.
- * Just gives you a list back, but feels nice for examples.
+ * Just gives you a list back, but feels nice for examples.</p>
  *
  * <p>There are two ways to use it. You can use the per arg parsing methods,
  * {@link #scanForArgWithParm(List, String)} or {@link #scanForFlag(List, String, boolean)}
  * passing the arg list in. Each of the scan methods will scan the entire list,
- * removing the <b>first</b> match and returning appropriately.
+ * removing the <b>first</b> match and returning appropriately.</p>
  *
  * <p>When you are done scanning for args, the remainder args are whatever is in
- * the list.
+ * the list.</p>
  *
  * <p>Alternatively, you can pass the list to {link {@link #scanForAllFlags(List)} and
  * then {@link #scanForAllParamArgs(List)} in turn, and each will return a list of
- * matching flag or string args.
+ * matching flag or string args.</p>
  *
  * <p>Personally, I find the incremental ones easier and more natural to code
- * against, but some may prefer the "all" variants. See unit test for sample usage.
+ * against, but some may prefer the "all" variants. See unit test for sample usage.</p>
  *
  * <p>No one will mistake it for JCommander or any of the other full up CLI parsing
- * packages, but very sufficient for rapid prototyping.
+ * packages, but very sufficient for rapid prototyping.</p>
  *
  * @author cschanck
  **/
