@@ -12,9 +12,8 @@ I want to do professional Java without the ecosystem.
 
 However, it can be instructive to look backwards, back to a time before build
 systems with automatic dependencies, back before frameworks upon frameworks,
-back when if you wanted something to work -- you built it yourself.
-
-From scratch. 
+back when if you wanted something to work -- you built it yourself. The whole thing.
+No libraries from kind strangers.
 
 Software minimalism is alive!
 
@@ -91,25 +90,10 @@ But even with the verbosity, you can write a lot with a little code.
 See the Overview doc for a description of current files. See specific docs in 
 src/docs for more info. 
 
-Eventually there will be a maven jar, one supposes, but really, just
-download the file you need.
-
-Enjoy.
+There will be a maven artifact on MavenCentral at some point,
+but really, just download the file you need.
  
 == Contributing
 
 Feel free! Push a PR, or just file an Issue as an idea. Try and keep the
 guidelines in mind, obvs, but aim high.
-
-== Ideas Well, sure, lots out there.
-
-A really tight REST framework that can put
-up a REST endpoint fast? A servlet container, perhaps for a single WAR, for easy
-testing? Something mathematical/numerical in nature (not my speciality)? No
-reason not to write a full min web server in one file? A curl/wget-like tool?
-Lots of possibilities.
-
-One thing I've thought of doing is cherry picking lots of Knuth-isms around
-searching and sorting on disk and doing general impls, for example.
-
-And so on and so on.
