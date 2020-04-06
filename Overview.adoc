@@ -55,3 +55,14 @@ Proxy an interface, and then provide a midpoint in the proxy chain where you can
 tap in and ship the invocation to the server site, and then ship the return
 value back and complete the operation. Stupid prototype RPC mechanism if you
 couple it with some network transport backplane.
+
+
+== ReplacementDiskSort
+
+Simple external disk sort, let's you specify the max number of in-memory
+elements for the initial run creation pass, and separately the max number
+of elements for the merge passes. The reading and appending is abstracted
+to facilitate using arbitrary file data. Note that the run creation pass
+uses exactly 1 iterator and 1 appender, so the file buffering overhead
+would be small. In the merge pass, N many readers are used, so N many
+file buffering objects (whatever you implement). Hence the two controls.

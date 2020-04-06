@@ -44,7 +44,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 /**
  * <p>Dead simple persistent ordered map. It is thread safe, via coarse synchronization
  * on writes. Reads are unsynchronized, though the underlying FileChannel is shared.
- * Deletes do not reclaim filespace; they simply stop referencing the
+ * Deletes do not reclaim file space; they simply stop referencing the
  * block. Writes are CRC checked on restart, file is truncated to match the valid
  * length.
  *

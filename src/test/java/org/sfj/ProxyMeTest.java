@@ -21,14 +21,12 @@ import static org.hamcrest.core.Is.is;
 
 public class ProxyMeTest {
   @Test
-  public void testSimple() throws InterruptedException {
+  public void testSimple() {
     AtomicReference<ProxyMe.Invocation> invoke = new AtomicReference<>(null);
 
     ProxyMe.Client<Function<Integer, Integer>>
       client =
-      new ProxyMe.Client<>(Executors.newScheduledThreadPool(1), Function.class, (iv) -> {
-        invoke.set(iv);
-      }, 1, TimeUnit.SECONDS);
+      new ProxyMe.Client<>(Executors.newScheduledThreadPool(1), Function.class, (iv) -> invoke.set(iv), 1, TimeUnit.SECONDS);
 
     Function<Integer, Integer> proxy = client.clientProxy(Thread.currentThread().getContextClassLoader());
 
@@ -59,9 +57,7 @@ public class ProxyMeTest {
 
     ProxyMe.Client<Map<Integer, Integer>>
       client =
-      new ProxyMe.Client<>(Executors.newScheduledThreadPool(1), Map.class, (i) -> {
-        invocations.offer(i);
-      }, 1, TimeUnit.SECONDS);
+      new ProxyMe.Client<>(Executors.newScheduledThreadPool(1), Map.class, invocations::offer, 1, TimeUnit.SECONDS);
 
     Map<Integer, Integer> mapProxy = client.clientProxy(Thread.currentThread().getContextClassLoader());
 
@@ -112,9 +108,9 @@ public class ProxyMeTest {
 
     ProxyMe.Client<Closeable>
       client =
-      new ProxyMe.Client<>(Executors.newScheduledThreadPool(1), Closeable.class, (i) -> {
-        cRef.get().complete(new ProxyMe.InvocationReturn<>(i.getIId(), null, new IOException()));
-      }, 10, TimeUnit.MILLISECONDS);
+      new ProxyMe.Client<>(Executors.newScheduledThreadPool(1), Closeable.class,
+        (i) -> cRef.get().complete(new ProxyMe.InvocationReturn<>(i.getIId(), null, new IOException())), 10,
+        TimeUnit.MILLISECONDS);
 
     cRef.set(client);
 

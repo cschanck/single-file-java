@@ -33,6 +33,7 @@ public class UnifiedExampleTest {
   public TemporaryFolder tmp = new TemporaryFolder();
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testCLIMapClientServerProxy() throws IOException {
     // OK, let's plug the first 4 pieces together. Some CLI parsing,
     // a ChiseledMap, accessible over sockets, remoted via a proxy.
