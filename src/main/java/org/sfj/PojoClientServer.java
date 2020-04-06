@@ -37,13 +37,13 @@ import java.util.function.Consumer;
 /**
  * <p>This class provides very simple client/server framework for passing pojos
  * between a client and server, using either standard java serialization, or a user
- * specified encode/decode path.</p>
+ * specified encode/decode path.
  *
  * <p>You can either fire a message at a remote, or send a message and ask for
- * a response. That's it. But small building blocks are sometimes enough.</p>
+ * a response. That's it. But small building blocks are sometimes enough.
  *
  * <p>See {@link PojoClientServer.Server()} and {@link PojoClientServer.Client()}
- * for more info</p>
+ * for more info
  * @author cschanck
  */
 public class PojoClientServer {

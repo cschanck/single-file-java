@@ -34,40 +34,40 @@ import java.util.function.Predicate;
  * consensus. For an earlier discussion of the same paper's impl, the one I originally
  * did the impl from, see this (and associated) link:
  * http://rystsov.info/2015/09/16/how-paxos-works.html With all due respect the LL,
- * these sources are much more digestible than the original paper.</p>
+ * these sources are much more digestible than the original paper.
  *
  * <p>You have to provide impls for the Network and the Storage, as well as the Node
  * specifier. All of the KV, Ballot, and message implementations should be Serializable
- * for simple usage. </p>
+ * for simple usage.
  *
  * <p>It's notoriously hard to get Paxos of any flavor right, though SDP is
  * a lot simpler than any of the Multi-Paxos algorithms. And testing is hard.
  * So it is even money there is a bug here and there, more eyes will help.
- * Still, should be close.</p>
+ * Still, should be close.
  *
  * <p>As a consequence of SDP, you'll note you provide a transform function for
  * the value of key; to "read" a value, you need use the identity function, and
  * run the full 2 stage paxos round, else you lose linearizability. Note that
- * we do none of the optimizations outlined in the paper.</p>
+ * we do none of the optimizations outlined in the paper.
  *
  * <p>In this case, each node is a {@link LittleCASPaxos} object. If you wanted a remote
  * client, then use some protocol to remotely invoke the
  * {@link #paxos(String, Function, int, long, TimeUnit)} method and return the
  * result. Note that in SDP, you can start a round from any node, there are no
- * distinguished nodes.</p>
+ * distinguished nodes.
  *
  * <p>Note also that there is no enumeration/iteration; traversal like this
  * is not a natural fit for CASPaxos, and would need further thought. With
  * a sorted storage, you could do range queries with paxos rounds if you
- * wanted, but thats more than I want to do.</p>
+ * wanted, but thats more than I want to do.
  *
  * <p>A more expansive impl could do lots more, like formalize adding and removing nodes
  * (see the paper for how this proceeds), turning single operations into sequences
- * of mutations, iteration, sloppy reads, etc. Lots of directions to go.</p>
+ * of mutations, iteration, sloppy reads, etc. Lots of directions to go.
  *
  * <p>It would be interesting to do a single file Raft impl, but that's actually
  * a lot more complicated, at least so it seems, because log-based consensus
- * just seems heavier.</p>
+ * just seems heavier.
  *
  * @author cschanck
  */
@@ -451,10 +451,10 @@ public class LittleCASPaxos {
    * and a sotrage component. Generally, you invoke by calling
    * {@link #paxos(String, Function, int, long, TimeUnit)}; this will send prepare
    * messages to each node, and then based on that send accept messages to
-   * everyone.</p>
+   * everyone.
    * <p>The network needs to process Prepare/Accept messages and process them
    * on the local node by calling {@link #processPrepare(Prepare, Consumer)}
-   * and {@link #processAcceptance(Acceptance, Consumer)} </p>
+   * and {@link #processAcceptance(Acceptance, Consumer)}
    *
    * @param net Network
    * @param me This node
