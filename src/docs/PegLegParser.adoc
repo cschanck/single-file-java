@@ -375,8 +375,9 @@ It is also (at the time of writing) 111 lines long vs 337 lines for the hand
 built one, and took very little time to do.
 
 == Error Handling
-There mostly isn't any yet. Coming, at least enough to be able to tell you
-what the last match and position was.
+The Context object holds some positional info around the farthest successful match
+and the greatest (farthest) failure past any successful match. Together they
+inform the getFailureMessage() call. Minimally useful, but not much to do.
 
 == Things to Dislike
 
@@ -386,7 +387,7 @@ There are a bunch of limitations, odd corners, etc.
 the Values object, but near as I can tell, I can't do that easily. Ref vars
 and the Values stack are a simpler, smaller substitute, but I don't love it.
 
-* Error handling isn't. Need to work on that.
+* Error handling is week. Not sure there is a lot to do in 1000 lines.
 
 * Perf will never be the strong suit. I could memoize, packrat, etc, but
 that would be a lot more work, and certainly not fit the ethos here.
