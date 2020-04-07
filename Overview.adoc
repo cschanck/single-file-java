@@ -3,9 +3,9 @@
 == ChiseledMap
 
 This is a very simple but pretty useful persistent ConcurrentMap implementation.
-At it's core, it has an in-memory map of keys to disk locations, then a append
-only log for storing key+value. The log on disk never gets smaller, though you
-can compact it to another file.
+At it's core, it has an in-memory map of keys to disk locations, then an
+append-only log for storing key+value. The log on disk never gets smaller,
+though you can compact it to another file.
  
 == DumbCLIParse
 

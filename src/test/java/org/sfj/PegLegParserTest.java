@@ -83,8 +83,8 @@ public class PegLegParserTest {
 
     PegLegRule<Long> expression() {
       Ref<String> op = new Ref<>("");
-      return seqOf(term(), zeroPlusOf(seqOf(anyOf("+-"), exec(() -> op.set(match().get())), term(), exec(() -> doMath(op)))))
-               .refs(op);
+      return seqOf(term(),
+        zeroPlusOf(seqOf(anyOf("+-"), exec(() -> op.set(match().get())), term(), exec(() -> doMath(op))))).refs(op);
     }
 
     private void doMath(Ref<String> op) {
@@ -107,9 +107,9 @@ public class PegLegParserTest {
     PegLegRule<Long> term() {
       return () -> {
         Ref<String> op = new Ref<>("");
-        return seqOf(factor(), zeroPlusOf(seqOf(anyOf("*/"), exec(() -> op.set(match().get())), factor(), exec(() -> doMath(op)))))
-                 .refs(op)
-                 .rule();
+        return seqOf(factor(),
+          zeroPlusOf(seqOf(anyOf("*/"), exec(() -> op.set(match().get())), factor(), exec(() -> doMath(op))))).refs(op)
+                                                                                                              .rule();
       };
     }
 
@@ -118,15 +118,22 @@ public class PegLegParserTest {
     }
 
     PegLegRule<Long> number() {
-      return seqOf(ws(), onePlusOf(charRange('0', '9')), exec(() -> values().push(parseLong(match().orElse("0")))), ws());
+      return seqOf(ws(), onePlusOf(charRange('0', '9')), exec(() -> values().push(parseLong(match().orElse("0")))),
+        ws());
     }
   }
 
   @Test
   public void testCalc() {
     CalcParser parser = new CalcParser();
+    parser.using("1+2");
+    PegLegParser.RuleReturn<Long> ret = parser.parse(parser.expression());
+    assertThat(ret.matched(), is(true));
+    assertThat(parser.values().peek().get(), is(3L));
+
+    parser = new CalcParser();
     parser.using("1+2 *(120- 100)/ 20 ");
-    PegLegParser.RuleReturn<Long> ret = parser.one().rule();
+    ret = parser.one().rule();
     assertThat(ret.matched(), is(true));
     assertThat(parser.values().peek().get(), is(3L));
 
@@ -199,16 +206,14 @@ public class PegLegParserTest {
    */
   static class Json extends PegLegParser<JSONOne.JObject> {
     PegLegRule<JSONOne.JObject> json() {
-      return firstOf(jsonObject(), jsonArray());
+      return seqOf(firstOf(jsonObject(), jsonArray()));
     }
 
     PegLegRule<JSONOne.JObject> jsonObject() {
       Ref<JSONOne.JMap> map = new Ref<>(JSONOne.JMap::new);
-      return () -> seqOf(ws('{'), optOf(seqOf(pair(), exec(addPair(map)), zeroPlusOf(',', pair(), exec(addPair(map))), optOf(ws(',')))), ws('}'), e(() -> values()
-                                                                                                                                                            .push(map
-                                                                                                                                                                    .get())))
-                     .refs(map)
-                     .rule();
+      return () -> seqOf(ws('{'),
+        optOf(seqOf(pair(), exec(addPair(map)), zeroPlusOf(',', pair(), exec(addPair(map))), optOf(ws(',')))), ws('}'),
+        e(() -> values().push(map.get()))).refs(map).rule();
     }
 
     private Runnable addPair(Ref<JSONOne.JMap> map) {
@@ -225,11 +230,11 @@ public class PegLegParserTest {
 
     PegLegRule<JSONOne.JObject> value() {
       return firstOf(jsonString(), // pushed below
-                     seqOf(jsonNumber(), e(this::matchAsNumber)), jsonObject(), // pushed below
-                     jsonArray(), // pushed below
-                     seqOf(ws("true"), e(() -> values().push(new JSONOne.JBoolean(true)))), seqOf(ws("false"), e(() -> values()
-                                                                                                                         .push(new JSONOne.JBoolean(false)))), seqOf(ws("null"), e(() -> values()
-                                                                                                                                                                                           .push(new JSONOne.JNull()))));
+        seqOf(jsonNumber(), e(this::matchAsNumber)), jsonObject(), // pushed below
+        jsonArray(), // pushed below
+        seqOf(ws("true"), e(() -> values().push(new JSONOne.JBoolean(true)))),
+        seqOf(ws("false"), e(() -> values().push(new JSONOne.JBoolean(false)))),
+        seqOf(ws("null"), e(() -> values().push(new JSONOne.JNull()))));
     }
 
     private void matchAsNumber() {
@@ -253,15 +258,9 @@ public class PegLegParserTest {
 
     PegLegRule<JSONOne.JObject> jsonArray() {
       Ref<JSONOne.JArray> arr = new Ref<>(JSONOne.JArray::new);
-      return () -> seqOf(ws('['), optOf(value(), exec(() -> arr.get()
-                                                              .add(values().pop())), zeroPlusOf(ws(','), value(), e(() -> arr
-                                                                                                                            .get()
-                                                                                                                            .add(values()
-                                                                                                                                   .pop()))), optOf(ws(','))), ws(']'), e(() -> values()
-                                                                                                                                                                                  .push(arr
-                                                                                                                                                                                          .get())))
-                     .refs(arr)
-                     .rule();
+      return () -> seqOf(ws('['), optOf(value(), exec(() -> arr.get().add(values().pop())),
+        zeroPlusOf(ws(','), value(), e(() -> arr.get().add(values().pop()))), optOf(ws(','))), ws(']'),
+        e(() -> values().push(arr.get()))).refs(arr).rule();
     }
 
     PegLegRule<JSONOne.JObject> chars() {
@@ -348,7 +347,8 @@ public class PegLegParserTest {
     ret = json.parse(json.json());
     assertThat(ret.matched(), is(false));
 
-    json.using("[  10, true, { \"foo\":1001, \"blah\": { \"a\":1, \"b\":2 }}, null, [false, [-1, -2, false, \"thingy\"], 10.3] ]");
+    json.using(
+      "[  10, true, { \"foo\":1001, \"blah\": { \"a\":1, \"b\":2 }}, null, [false, [-1, -2, false, \"thingy\"], 10.3] ]");
     ret = json.parse(json.json());
     assertThat(ret.matched(), is(true));
 
@@ -365,6 +365,33 @@ public class PegLegParserTest {
     JSONOne.JMap mval = json.values().peek().get().mapValue();
     String str = mval.get("foo").stringValue();
     assertThat(str.indexOf('\n') >= 0, is(true));
+
+  }
+
+  @Test
+  public void testJSONFailures() {
+    Json json = new Json();
+    String str = "[1, 3 4, 10.3]";
+    json.using(str);
+    PegLegParser.RuleReturn<JSONOne.JObject> ret = json.parse(json.jsonArray());
+    assertThat(ret.matched(), is(false));
+    System.out.println("Last: " + ret.ctx().getLastReturn());
+    System.out.println("Far success: " + ret.ctx().farthestSuccessfulPos);
+    System.out.println("Failure: " + ret.ctx().greatestFailurePos);
+    System.out.println("Fail: = " + str.substring(ret.ctx().greatestFailurePos.bufferPos));
+    System.out.println("    : = [" + str.substring(ret.ctx().greatestFailurePos.bufferPos, ret.ctx().farthestSuccessfulPos.bufferPos)+"]");
+    System.out.println("   ->> "+json.getFailureMessage());
+
+    str = "[  10, true, [-1, -2, blerg, false, { \"1\" : 3, \"10\" : 4, } , \"thingy\"], 10.3]";
+    json.using(str);
+    ret = json.parse(json.json());
+    assertThat(ret.matched(), is(false));
+    System.out.println("Last: " + ret.ctx().getLastReturn());
+    System.out.println("Far success: " + ret.ctx().farthestSuccessfulPos);
+    System.out.println("Failure: " + ret.ctx().greatestFailurePos);
+    System.out.println("Fail: = " + str.substring(ret.ctx().greatestFailurePos.bufferPos));
+    System.out.println("    : = [" + str.substring(ret.ctx().greatestFailurePos.bufferPos, ret.ctx().farthestSuccessfulPos.bufferPos)+"]");
+    System.out.println("   ->> "+json.getFailureMessage());
 
   }
 
