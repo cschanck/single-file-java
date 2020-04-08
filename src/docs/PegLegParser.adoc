@@ -30,7 +30,7 @@ do so.
 When you write a parser using PegLeg, you start by extending the PegLegParser
 class, typed by the kind of value you will be placing on the value stack.\
 
-Note: By default, the pasrser recognizes any character in the string `" \n\r\f"`
+Note: By default, the parser recognizes any character in the string `" \n\r\f"`
 as whitespace; change that with the `setWhitespace(String)` method.
 
 Also, regarding the input string, the parser defaults to
@@ -92,7 +92,7 @@ does not consume input. Used to lookahead.
 
 ----
 These two rules explain a lot of why PEGs are not the most efficient
-parsers, lots of lookahead tends to be needed to make unambigious choices.
+parsers; infinite lookup solves a lot of problems.
 ----
 
 All of these rules actually return `ParentRule` objects, which gives you the ability
@@ -115,6 +115,10 @@ The objects in the argument list to `seqOf()` (and all the other provided non-te
 rules) can be of a few different types:
 
 * an instance of `PegLegRule`
+** You can wrap an instance of PegLegRule in a named rule stanza by
+using `named("rule name", () -> { PegLegRule });`. Named rules will inform
+the `getParseTrail()` method, and can be used to display a nice view of
+what rules have matched at a point.
 ** all of the provided PegLeg rules, such as `ch()`, `anyOf()`, `zeroPlusOf()`, etc,
 implement `PegLegRule`.
 ** you will write methods returning `PegLegRule`; this is how the grammar is constructed.
@@ -127,6 +131,7 @@ a failed match.
 * a `Runnable`, which gets wrapped in an `exec(Runnnable)` call. Note that the
 exec(Runnable) method provides an easy way to define these as lambdas
 without needing to cast the lambda.
+
 
 So, for example:
 
@@ -218,9 +223,10 @@ this is the parser itself; the Rules make use of `get()` to see whats going on.
 Feel free to have a hierarchy of parsing code tho.
 
 === Exec() calls
-The `e(Runnable)`, `exec(Runnable)` and `testExec(Exec)` are the ways
-you "call out" in the middle of parsing and do stuff (construct a node of objects,
-etc). (So much do I wish I could cal id 'do'!)
+
+The `ex(Runnable)` and `testExec(Exec)` are the ways you "call out" in the
+middle of parsing and do stuff (construct a node of objects, etc). (So much do I
+wish I could call it 'do'!)
 
 Example:
 
@@ -267,10 +273,11 @@ than 10. If it returns false, parsing will stop.
 === Values() Stack & Ref Variables
 
 ==== Values object
+
 Each parsing run has access to a typed stack of values. This is how you return
-values from one rule to another, by stack manipulation. Via the `values()` method
-on the parser (which is a call through to the one on the current Context) you
-obtain access to a stack, with normal operations like `push()`, `pop()`, etc.
+values from one rule to another, by stack manipulation. Via the `values()`
+method on the parser you obtain access to a stack, with normal operations like
+`push()`, `pop()`, etc.
 
 If a rule fails to match, the value stack is returned to the state it was in
 prior to the rule's invocation. So the side effects of failed operations are
@@ -296,7 +303,7 @@ Basically, the Ref variables function like a stack of values, each new rule
 invocation allocates a new one, and only sees that one, until it is done, at which
 point it is popped off the stack.
 
-Ref variables are basically desined to commincate within sibling
+Ref variables are basically desined to communicate within sibling
 exec() calls in the same rule, that need a different type than the stack
 is typed as.
 
@@ -345,7 +352,6 @@ then invoke the rule you wish to parse via the `.parse()` method.
 * `matchLine()` -- line number it match on, 1 is the first line
 * `matchLineOffset()` -- position on the line it matched at (0 first column)
 * `matchLen()` -- length of the matched literal
-* `ctx()` -- supplies context for this match. only useful for last match, valid at end of parsing run.
 
 you can then, in our example above, get the actual matched literal like this:
 
@@ -354,7 +360,7 @@ you can then, in our example above, get the actual matched literal like this:
 parser = new ABCGrammar();
 parser.using("AABBCC");
 ReturnValue<Object> ret = parser.parse(parser.S());
-String match = ret.ctx().match().orElse("NO!!!!!");
+String match = ret.match().orElse("NO!!!!!");
 System.out.println(match);
 // or...
 String match = parser.match().orElse("NO!!!!!");
@@ -375,9 +381,11 @@ It is also (at the time of writing) 111 lines long vs 337 lines for the hand
 built one, and took very little time to do.
 
 == Error Handling
-The Context object holds some positional info around the farthest successful match
-and the greatest (farthest) failure past any successful match. Together they
-inform the getFailureMessage() call. Minimally useful, but not much to do.
+
+The `getFailureMessage()` gives you a best guess error message for where
+parsing failed. you can access the various pieces of state that inform it.
+`getParseTrail()` will give you the a list of the current matched rules,
+assuming you named them.
 
 == Things to Dislike
 
@@ -387,18 +395,10 @@ There are a bunch of limitations, odd corners, etc.
 the Values object, but near as I can tell, I can't do that easily. Ref vars
 and the Values stack are a simpler, smaller substitute, but I don't love it.
 
-* Error handling is week. Not sure there is a lot to do in 1000 lines.
-
 * Perf will never be the strong suit. I could memoize, packrat, etc, but
 that would be a lot more work, and certainly not fit the ethos here.
 
 * PegLeg will generate a fair amount of YoungGen memory traffic, I think.
-
-* The line ending management is blah. Literally, whatever you set the line
-separator string to is replaced with newlines only prior to parsing,
-which is ... a bit over the top. OTOH, greatly simplifies the character
-parsing code, by making end of line ident easy, and given the backtracking,
-it would be inefficient to do it on the fly.
 
 * The 1000 line limit hurts in other ways; no room to build a Reader impl
 with (essentially) unlimited pushback and random access to characters in

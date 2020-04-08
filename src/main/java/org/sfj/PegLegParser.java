@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -42,17 +41,19 @@ import static java.util.stream.Collectors.toList;
  * @param <V> Value stack type.
  * @author cschanck
  */
-public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
+public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
   private Source source;
-  private Context<V> context;
   private String whiteSpace = " \t\r\n";
-
-  public static class PegLegException extends RuntimeException {
-    public PegLegException(String s) { super(s); }
-  }
+  private String lineSep = System.lineSeparator();
+  private LinkedList<SourceFrame> frame = new LinkedList<>();
+  private Values<V> values = new Values<>();
+  private RuleReturn<V> lastReturn = null;
+  private RuleReturn<V> lastSuccessfulReturn = null;
+  public SourcePosition farthestSuccessfulPos = new SourcePosition();
+  public SourcePosition greatestFailurePos = new SourcePosition();
 
   /**
-   * Random holder class for intra rule parser data manipulation.
+   * Random holder class for intra rule parser data manipulation. Used within sibling rules.
    * @param <V>
    */
   static class Ref<V> {
@@ -67,16 +68,11 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
 
     public void set(V value) { stack.set(0, value); }
 
-    @Override
     public String toString() { return "Ref{" + get() + '}'; }
 
-    void enterRef() {
-      stack.push(init.get());
-    }
+    void enterRef() { stack.push(init.get()); }
 
-    void exitRef() {
-      stack.pop();
-    }
+    void exitRef() { stack.pop(); }
 
   }
 
@@ -107,7 +103,6 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   }
 
   class ParentRule implements PegLegRule<V> {
-
     private PegLegRule<V> rule;
     private Ref<?>[] refs = null;
 
@@ -115,7 +110,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
       this.rule = rule;
     }
 
-    PegLegRule<V> refs(Ref<?>... refs) {
+    public PegLegRule<V> refs(Ref<?>... refs) {
       this.refs = refs;
       return this;
     }
@@ -135,23 +130,32 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   static class SourcePosition {
     int line = 1;
     int linePos = 0;
-    int bufferPos = 0;
+    int srcPos = 0;
 
     public SourcePosition() { }
 
-    public SourcePosition(int bufferPos, int line, int linePos) {
+    public SourcePosition(int srcPos, int line, int linePos) {
       this.line = line;
       this.linePos = linePos;
-      this.bufferPos = bufferPos;
+      this.srcPos = srcPos;
     }
 
     public SourcePosition dup() {
-      return new SourcePosition(bufferPos, line, linePos);
+      return new SourcePosition(srcPos, line, linePos);
     }
 
     @Override
     public String toString() {
-      return "Source @" + bufferPos + "(line=" + line + ":linePos=" + linePos + ")";
+      return "Source @" + srcPos + "(line=" + line + ":linePos=" + linePos + ")";
+    }
+  }
+
+  static class SourceFrame extends SourcePosition {
+    final String name;
+
+    public SourceFrame(String name, SourcePosition pos) {
+      super(pos.srcPos, pos.line, pos.linePos);
+      this.name = name;
     }
   }
 
@@ -164,20 +168,20 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
       this.src = src;
     }
 
-    public boolean atEnd() { return state.bufferPos >= src.length(); }
+    public boolean atEnd() { return state.srcPos >= src.length(); }
 
     public SourcePosition getState() { return state.dup(); }
 
     public boolean peekOneOf(String chars) {
-      if (state.bufferPos < src.length()) { return chars.indexOf(src.charAt(state.bufferPos)) >= 0; }
+      if (state.srcPos < src.length()) { return chars.indexOf(src.charAt(state.srcPos)) >= 0; }
       return false;
     }
 
     public void setState(SourcePosition state) { this.state = state; }
 
     public int nextChar() {
-      if (state.bufferPos < src.length()) {
-        int ret = src.charAt(state.bufferPos++);
+      if (state.srcPos < src.length()) {
+        int ret = src.charAt(state.srcPos++);
         if (((char) ret) == '\n') {
           state.line++;
           state.linePos = 0;
@@ -194,9 +198,6 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     public String substring(int pos) { return substring(pos, src.length() - pos); }
   }
 
-  /*
-   * Single linked list node for stack.
-   */
   private static class SingleNode<V> {
     V value;
     SingleNode<V> down;
@@ -265,13 +266,9 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     public V pop(int pos) {
       if (pos == 0) { return pop(); }
       LinkedList<V> hold = new LinkedList<>();
-      for (int i = 0; i <= pos; i++) {
-        hold.push(pop());
-      }
+      for (int i = 0; i <= pos; i++) { hold.push(pop()); }
       V ret = hold.pop();
-      while (!hold.isEmpty()) {
-        push(hold.pop());
-      }
+      while (!hold.isEmpty()) { push(hold.pop()); }
       return ret;
     }
 
@@ -283,143 +280,129 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     public String toString() { return "Values:" + allValues(); }
   }
 
+  private int frameDepth() { return frame.size(); }
+
+  private boolean peekOneOf(String chars) { return source.peekOneOf(chars); }
+
+  private void tossTopFrame() { frame.pop(); }
+
+  private SingleNode<V> saveValues() { return values.save(); }
+
+  private void restoreValues(SingleNode<V> point) { values.restore(point); }
+
+  private void pushFrame() { pushFrame(null); }
+
+  private void pushFrame(String name) { frame.push(new SourceFrame(name, source.getState())); }
+
+  private void trimFramesTo(int size) { while (frame.size() > size) { frame.pop(); } }
+
+  private void resetToLastFrame() {
+    SourcePosition state = frame.pop();
+    source.setState(state);
+  }
+
+  private int nextChar() { return source.nextChar(); }
+
+  private void rollback(int frameCount, SingleNode<V> oldTop) {
+    trimFramesTo(frameCount);
+    restoreValues(oldTop);
+  }
+
+  public List<String> parseTrail() {
+    List<String> ret = frame.stream().filter(Objects::nonNull).map(s -> s.name).collect(toList());
+    Collections.reverse(ret);
+    return ret;
+  }
+
   /**
-   * Context object for a rule invocation.
-   * @param <V> value stack type
+   * The last rule's matched literal.
+   * @return last match literal
    */
-  public static class Context<V> {
-    private final Source source;
-    private LinkedList<SourcePosition> frame = new LinkedList<>();
-    private Values<V> values = new Values<>();
-    private RuleReturn<V> lastReturn = null;
-    private RuleReturn<V> lastSuccessfulReturn = null;
-    public SourcePosition farthestSuccessfulPos = new SourcePosition();
-    public SourcePosition greatestFailurePos = new SourcePosition();
-
-    Context(Source source) {
-      this.source = source;
+  public Optional<String> match() {
+    if (lastReturn != null && lastReturn.matched()) {
+      return Optional.of(source.substring(lastReturn.match.srcPos, lastReturn.matchLen));
     }
+    return Optional.empty();
+  }
 
-    public Source getSource() { return source; }
+  /**
+   * Last rule return.
+   * @return rule return
+   */
+  public RuleReturn<V> getLastReturn() { return lastReturn; }
 
-    int frameDepth() { return frame.size(); }
+  public RuleReturn<V> getLastSuccessfulReturn() { return lastSuccessfulReturn; }
 
-    boolean peekOneOf(String chars) { return source.peekOneOf(chars); }
-
-    void tossTopFrame() { frame.pop(); }
-
-    SingleNode<V> saveValues() { return values.save(); }
-
-    void restoreValues(SingleNode<V> point) { values.restore(point); }
-
-    /**
-     * Value stack.
-     * @return value stack
-     */
-    public Values<V> values() { return values; }
-
-    void pushFrame() { frame.push(source.getState()); }
-
-    void trimFramesTo(int size) { while (frame.size() > size) { frame.pop(); } }
-
-    void resetToLastFrame() {
-      SourcePosition state = frame.pop();
-      source.setState(state);
-    }
-
-    int nextChar() { return source.nextChar(); }
-
-    void rollback(int frameCount, SingleNode<V> oldTop) {
-      trimFramesTo(frameCount);
-      restoreValues(oldTop);
-    }
-
-    /**
-     * The last rule's matched literal.
-     * @return last match literal
-     */
-    public Optional<String> match() {
-      if (lastReturn != null && lastReturn.matched()) {
-        return Optional.of(source.substring(lastReturn.matchPos, lastReturn.matchLen));
+  private RuleReturn<V> ruleReturn(boolean matched, boolean consumed) {
+    RuleReturn<V> ret = lastReturn = new RuleReturn<>(this, matched, consumed);
+    if (consumed) { tossTopFrame(); } else { resetToLastFrame(); }
+    if (matched && consumed) {
+      if (ret.matchLen + ret.match.srcPos > farthestSuccessfulPos.srcPos) {
+        farthestSuccessfulPos.srcPos = ret.match.srcPos + ret.matchLen;
+        farthestSuccessfulPos.line = ret.match.line;
+        farthestSuccessfulPos.linePos = ret.match.linePos + ret.matchLen;
       }
-      return Optional.empty();
-    }
-
-    /**
-     * Last rule return.
-     * @return rule return
-     */
-    public RuleReturn<V> getLastReturn() { return lastReturn; }
-
-    RuleReturn<V> ruleReturn(boolean matched, boolean consumed) {
-      RuleReturn<V> ret = lastReturn = new RuleReturn<>(this, matched, consumed);
-      if (consumed) { tossTopFrame(); } else { resetToLastFrame(); }
-      if (matched && consumed) {
-        if (ret.matchLen + ret.matchPos > farthestSuccessfulPos.bufferPos) {
-          farthestSuccessfulPos.bufferPos = ret.matchPos + ret.matchLen;
-          farthestSuccessfulPos.line = ret.matchLine;
-          farthestSuccessfulPos.linePos = ret.matchLineOffset + ret.matchLen;
-        }
-        if ((lastSuccessfulReturn == null) || (ret.matchPos > lastSuccessfulReturn.matchPos)) {
-          lastSuccessfulReturn = ret;
-          greatestFailurePos.bufferPos = -1;
-          farthestSuccessfulPos.bufferPos = -1;
-        }
-      } else {
-        int bp = source.state.bufferPos;
-        if (lastSuccessfulReturn != null && bp > greatestFailurePos.bufferPos && bp < lastSuccessfulReturn.matchPos) {
-          greatestFailurePos.bufferPos = bp;
-          greatestFailurePos.line = source.state.line;
-          greatestFailurePos.linePos = source.state.linePos;
-        }
+      if ((lastSuccessfulReturn == null) || (ret.match.srcPos > lastSuccessfulReturn.match.srcPos)) {
+        lastSuccessfulReturn = ret;
+        greatestFailurePos.srcPos = -1;
+        farthestSuccessfulPos.srcPos = -1;
       }
-      return ret;
+    } else if (!matched) {
+      int bp = source.state.srcPos;
+      if (lastSuccessfulReturn != null && bp > greatestFailurePos.srcPos && bp < lastSuccessfulReturn.match.srcPos) {
+        greatestFailurePos.srcPos = bp;
+        greatestFailurePos.line = source.state.line;
+        greatestFailurePos.linePos = source.state.linePos;
+      }
     }
+    return ret;
   }
 
   /**
    * Rule return.
-   * @param <V> value type
    */
   public static class RuleReturn<V> {
-    private final Context<V> ctx;
-    private final boolean matched;
+    private final PegLegParser<V> parser;
     private final boolean consumed;
-    private int matchLine;
-    private int matchLineOffset;
-    private int matchPos = -1;
+    private final SourcePosition match;
     private int matchLen = 0;
 
-    private RuleReturn(Context<V> ctx, boolean matched, boolean consumed) {
-      this.ctx = ctx;
-      this.matched = matched;
+    private RuleReturn(PegLegParser<V> parser, boolean matched, boolean consumed) {
+      this.parser = parser;
       this.consumed = consumed;
       if (matched) {
-        SourcePosition prev = ctx.frame.get(0);
-        matchPos = prev.bufferPos;
-        matchLen = ctx.source.state.bufferPos - matchPos;
-        matchLine = prev.line;
-        matchLineOffset = prev.linePos;
+        SourcePosition prev = parser.frame.get(0);
+        this.match = new SourcePosition(prev.srcPos, prev.line, prev.linePos);
+        matchLen = parser.source.state.srcPos - prev.srcPos;
+      } else {
+        this.match = null;
       }
+    }
+
+    public Optional<String> match() {
+      if (matched()) {
+        return Optional.of(parser.source.substring(match.srcPos, matchLen));
+      }
+      return Optional.empty();
     }
 
     /**
      * Line of match, first line is 1.
      * @return line
      */
-    public int matchLine() { return matchLine; }
+    public int matchLine() { return match.line; }
 
     /**
      * Line offset of match, 1st char on line is 0.
      * @return offset
      */
-    public int matchLineOffset() { return matchLineOffset; }
+    public int matchLineOffset() { return match.linePos; }
 
     /**
      * Char offset into input where match occurred.
      * @return line offset
      */
-    public int matchPos() { return matchPos; }
+    public int matchPos() { return match.srcPos; }
 
     /**
      * Length of match.
@@ -431,7 +414,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
      * Did we match.
      * @return true if matched
      */
-    public boolean matched() { return matched; }
+    public boolean matched() { return match != null; }
 
     /**
      * Did the rule consume chars.
@@ -439,16 +422,14 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
      */
     public boolean consumed() { return consumed; }
 
-    /**
-     * Context. Only valid for current match, or last match of a parsing run.
-     * @return context.
-     */
-    public Context<V> ctx() { return ctx; }
-
     @Override
     public String toString() {
-      return String.format("RuleReturn match=%s(%s) @ %d for %d (line %d, nextPos=%d)", matched, consumed, matchPos,
-        matchLen, matchLine, matchLineOffset);
+      if (matched()) {
+        return String.format("RuleReturn match=%s(%s) @ %d for %d (line %d, nextPos=%d)", match != null, consumed,
+          match.srcPos, matchLen, match.line, match.linePos);
+      } else {
+        return "RuleReturn match=false";
+      }
     }
 
   }
@@ -461,7 +442,9 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     private final TerminalRule<V> delegate;
     boolean ignoreCase;
 
-    public CharTerminal(TerminalRule<V> delegate) { this.delegate = delegate; }
+    public CharTerminal(TerminalRule<V> delegate) {
+      this.delegate = delegate;
+    }
 
     /**
      * Ignore case.
@@ -475,8 +458,6 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     @Override
     public RuleReturn<V> rule() { return delegate.rule(ignoreCase); }
   }
-
-  private String lineSep = System.lineSeparator();
 
   public PegLegParser() { }
 
@@ -495,7 +476,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
       } else if (thing instanceof Exec) {
         this.exec = (Exec) thing;
       } else if (thing instanceof Runnable) {
-        this.exec = exec((Runnable) thing);
+        this.exec = ex((Runnable) thing);
       } else {
         throw new RuntimeException("Expected String/char/PegLegRule/Exec/Runnable; found: " + thing);
       }
@@ -509,33 +490,29 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   }
 
   private RuleReturn<V> eofRule() {
-    get().pushFrame();
+    get().pushFrame("eof()");
     return get().ruleReturn(source.atEnd(), false);
   }
 
-  private RuleReturn<V> eolRule() {
-    return innerStr(lineSep).rule();
-  }
+  private RuleReturn<V> eolRule() { return innerStr("eol()", lineSep).rule(); }
 
   private RuleReturn<V> wsRule() {
-    get().pushFrame();
+    get().pushFrame("ws()");
     consumeWS();
     return get().ruleReturn(true, true);
   }
 
   private void consumeWS() {
-    for (; ; get().nextChar()) {
-      if (!get().peekOneOf(whiteSpace)) { return; }
-    }
+    for (; ; get().nextChar()) { if (!get().peekOneOf(whiteSpace)) { return; } }
   }
 
   private static boolean isCharMatch(boolean iCase, char ch1, char ch2) {
     return (iCase) ? Character.toUpperCase(ch1) == Character.toUpperCase(ch2) : (ch1 == ch2);
   }
 
-  private RuleReturn<V> innerTest(PegLegRule<V> rule) {
+  private RuleReturn<V> innerTest(String name, PegLegRule<V> rule) {
     SingleNode<V> values = get().saveValues();
-    get().pushFrame();
+    get().pushFrame(name);
     int cnt = get().frameDepth();
     RuleReturn<V> ret = rule.rule();
     get().rollback(cnt, values);
@@ -544,13 +521,25 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
 
   @SuppressWarnings("unchecked")
   private List<Step> asSteps(Object... objs) {
-    return stream(objs).map(o -> (o instanceof PegLegParser.Step) ? (Step) o : new Step(o)).collect(toList());
+    if (objs.length == 0) {
+      return Collections.emptyList();
+    } else if (objs.length == 1) {
+      if (objs[0] instanceof PegLegParser.Step) {
+        return Collections.singletonList((Step) objs[0]);
+      }
+      return Collections.singletonList(new Step(objs[0]));
+    }
+    ArrayList<Step> ret = new ArrayList<>();
+    for (Object o : objs) {
+      ret.add(o instanceof PegLegParser.Step ? (PegLegParser<V>.Step) o : new Step(o));
+    }
+    return ret;
   }
 
-  private RuleReturn<V> innerTimesOf(int min, int max, Object... objs) {
+  private RuleReturn<V> innerTimesOf(String name, int min, int max, Object... objs) {
     PegLegRule<V> rule = seqOf(objs);
     SingleNode<V> values = get().saveValues();
-    get().pushFrame();
+    get().pushFrame(name);
     int cnt = get().frameDepth();
     int matchCount = 0;
     for (; matchCount < max; ) {
@@ -567,18 +556,10 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     return get().ruleReturn(false, false);
   }
 
-  /**
-   * Set the whitespace characters.
-   * @param whiteSpace char string containing whitespace chars.
-   */
   public void setWhiteSpace(String whiteSpace) { this.whiteSpace = whiteSpace; }
 
-  public void setLineSeperator(String sep) { this.lineSep = sep; }
+  public void setLineSeparator(String sep) { this.lineSep = sep; }
 
-  /**
-   * Get the whitespace characters.
-   * @return current whitespace characters
-   */
   public String getWhiteSpace() { return whiteSpace; }
 
   /**
@@ -588,8 +569,13 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public PegLegParser<V> using(CharSequence input) {
     this.source = new Source(input);
-    this.context = new Context<>(source);
-    context.pushFrame();
+    frame = new LinkedList<>();
+    values = new Values<>();
+    lastReturn = null;
+    lastSuccessfulReturn = null;
+    farthestSuccessfulPos = new SourcePosition();
+    greatestFailurePos = new SourcePosition();
+    pushFrame();
     return this;
   }
 
@@ -597,10 +583,11 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * Get context object at the moment.
    * @return context object
    */
-  public Context<V> get() { return context; }
+  public PegLegParser<V> get() { return this; }
 
-  PegLegException error(String message) {
-    return new PegLegException("[" + source.getState().line + ":" + source.getState().linePos + "] " + message);
+  IllegalArgumentException error(String message) {
+    return new IllegalArgumentException(
+      "[" + source.getState().line + ":" + source.getState().linePos + "] " + message);
   }
 
   /**
@@ -608,7 +595,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @param ch char
    * @return rule
    */
-  public CharTerminal<V> ch(char ch) { return str(Character.toString(ch)); }
+  public CharTerminal<V> ch(char ch) { return innerStr("ch(" + ch + ")", Character.toString(ch)); }
 
   /**
    * Generate a terminal rule for a range of characters.
@@ -618,14 +605,12 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public CharTerminal<V> charRange(char from, char to) {
     if ((int) from > (int) to) { throw error("Char range is illegal: [" + from + " to " + to + "]"); }
-    String name = "charRange(" + from + "," + to + ")";
     return new CharTerminal<>((ignoreCase) -> {
-      get().pushFrame();
+      get().pushFrame("charRange(" + from + "," + to + ")");
       int n = get().nextChar();
       if (n >= 0) {
-        char ch = (char) n;
         for (int i = from; i <= (int) to; i++) {
-          if (isCharMatch(ignoreCase, ch, (char) i)) {
+          if (isCharMatch(ignoreCase, (char) n, (char) i)) {
             return get().ruleReturn(true, true);
           }
         }
@@ -640,24 +625,14 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @return rule
    */
   public CharTerminal<V> str(CharSequence string) {
-    return innerStr(string);
+    return innerStr("str(" + string + ")", string);
   }
 
-  private CharTerminal<V> innerStr(CharSequence string) {
+  private CharTerminal<V> innerStr(String name, CharSequence string) {
     return new CharTerminal<>((ignoreCase) -> {
-      get().pushFrame();
-      for (int i = 0; i < string.length(); i++) {
-        int n = get().nextChar();
-        if (n < 0) { return get().ruleReturn(false, false); }
-        char ch = (char) n;
-        if (!isCharMatch(ignoreCase, string.charAt(i), ch)) {
-          return get().ruleReturn(false, false);
-        }
-      }
-      if (string.equals("false")) {
-        int n = 0;
-      }
-      return get().ruleReturn(true, true);
+      get().pushFrame(name);
+      boolean ret = extremelyInnerString(string, ignoreCase);
+      return get().ruleReturn(ret, ret);
     });
   }
 
@@ -667,24 +642,24 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @return rule
    */
   public CharTerminal<V> ws(CharSequence string) {
-    String name = "ws(\"" + string + "\")";
     return new CharTerminal<>((ignoreCase) -> {
-      get().pushFrame();
+      get().pushFrame("ws(\"" + string + "\")");
       consumeWS();
-      for (int i = 0; i < string.length(); i++) {
-        int n = get().nextChar();
-        if (n < 0) { return get().ruleReturn(false, false); }
-        char ch = (char) n;
-        if (!isCharMatch(ignoreCase, string.charAt(i), ch)) {
-          return get().ruleReturn(false, false);
-        }
-      }
+      if (!extremelyInnerString(string, ignoreCase)) { return get().ruleReturn(false, false); }
       consumeWS();
-      if (string.equals("false")) {
-        int n = 0;
-      }
       return get().ruleReturn(true, true);
     });
+  }
+
+  private boolean extremelyInnerString(CharSequence string, boolean ignoreCase) {
+    for (int i = 0; i < string.length(); i++) {
+      int n = get().nextChar();
+      if (n < 0) { return false; }
+      if (!isCharMatch(ignoreCase, string.charAt(i), (char) n)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -707,12 +682,11 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public CharTerminal<V> anyOf(CharSequence string) {
     return new CharTerminal<>((ignoreCase) -> {
-      get().pushFrame();
+      get().pushFrame("anyOf(" + string + ")");
       int n = get().nextChar();
       if (n < 0) { return get().ruleReturn(false, false); }
-      char targ = (char) n;
       for (int i = 0; i < string.length(); i++) {
-        if (isCharMatch(ignoreCase, string.charAt(i), targ)) {
+        if (isCharMatch(ignoreCase, string.charAt(i), (char) n)) {
           return get().ruleReturn(true, true);
         }
       }
@@ -727,12 +701,11 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public CharTerminal<V> noneOf(CharSequence string) {
     return new CharTerminal<>((ignoreCase) -> {
-      get().pushFrame();
+      get().pushFrame("noneOf(" + string + ")");
       int n = get().nextChar();
       if (n >= 0) {
-        char targ = (char) n;
         for (int i = 0; i < string.length(); i++) {
-          if (isCharMatch(ignoreCase, string.charAt(i), targ)) {
+          if (isCharMatch(ignoreCase, string.charAt(i), (char) n)) {
             return get().ruleReturn(false, false);
           }
         }
@@ -742,16 +715,8 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
     });
   }
 
-  /**
-   * Rule that matches end of input
-   * @return rule
-   */
   public PegLegRule<V> eof() { return this::eofRule; }
 
-  /**
-   * Rule that matches end of line, possibly multichar end of line.
-   * @return rule
-   */
   public PegLegRule<V> eol() { return this::eolRule; }
 
   /**
@@ -761,14 +726,13 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @return sequence rule
    */
   public ParentRule seqOf(Object... objs) {
-
     List<Step> steps = asSteps(objs);
     PegLegRule<V> rule;
     if (steps.size() == 1 && steps.get(0).isRule()) {
       rule = steps.get(0).asRule();
     } else {
       rule = () -> {
-        get().pushFrame();
+        get().pushFrame("seqOf()");
         SingleNode<V> values = get().saveValues();
         int cnt = get().frameDepth();
         for (Step r : steps) {
@@ -793,35 +757,41 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   }
 
   /**
-   * Core PEG rule "Choice", here called firstOf. Tries each sub rule in turn, return whe one matches.
+   * Core PEG rule "Choice", here called firstOf. Tries each sub rule in turn, return first match.
    * @param objs rules/string literals/char literals/execs
    * @return rule
    */
   public ParentRule firstOf(Object... objs) {
     List<Step> steps = asSteps(objs);
-    return new ParentRule(() -> {
-      get().pushFrame();
-      SingleNode<V> values = get().saveValues();
-      int cnt = get().frameDepth();
-      for (Step r : steps) {
-        if (r.isRule()) {
-          get().pushFrame();
-          RuleReturn<V> ret = r.asRule().rule();
-          if (ret.matched()) {
-            get().trimFramesTo(cnt);
-            return get().ruleReturn(true, true);
-          }
-          get().resetToLastFrame();
-        } else {
-          if (!r.asExec().exec()) {
-            get().rollback(cnt, values);
-            return get().ruleReturn(false, false);
+    PegLegRule<V> rule;
+    if (steps.size() == 1 && steps.get(0).isRule()) {
+      rule = steps.get(0).asRule();
+    } else {
+      rule = () -> {
+        get().pushFrame("firstOf()");
+        SingleNode<V> values = get().saveValues();
+        int cnt = get().frameDepth();
+        for (Step r : steps) {
+          if (r.isRule()) {
+            get().pushFrame();
+            RuleReturn<V> ret = r.asRule().rule();
+            if (ret.matched()) {
+              get().trimFramesTo(cnt);
+              return get().ruleReturn(true, true);
+            }
+            get().resetToLastFrame();
+          } else {
+            if (!r.asExec().exec()) {
+              get().rollback(cnt, values);
+              return get().ruleReturn(false, false);
+            }
           }
         }
-      }
-      get().rollback(cnt, values);
-      return get().ruleReturn(false, false);
-    });
+        get().rollback(cnt, values);
+        return get().ruleReturn(false, false);
+      };
+    }
+    return new ParentRule(rule);
   }
 
   /**
@@ -831,7 +801,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public ParentRule testOf(Object... objs) {
     PegLegRule<V> rule = seqOf(objs);
-    return new ParentRule(() -> get().ruleReturn(innerTest(rule).matched(), false));
+    return new ParentRule(() -> get().ruleReturn(innerTest("testOf()", rule).matched(), false));
   }
 
   /**
@@ -841,7 +811,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public ParentRule testNotOf(Object... objs) {
     PegLegRule<V> rule = seqOf(objs);
-    return new ParentRule(() -> get().ruleReturn(!innerTest(rule).matched(), false));
+    return new ParentRule(() -> get().ruleReturn(!innerTest("testNotOf()", rule).matched(), false));
   }
 
   /**
@@ -853,7 +823,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public ParentRule timesOf(int min, int max, Object... objs) {
     if (min < 0 || max < 0 || max < min) { throw error("illegal min/max for timesof [" + min + "/" + max + "]"); }
-    return new ParentRule(() -> innerTimesOf(min, max, objs));
+    return new ParentRule(() -> innerTimesOf("timesOf(" + min + "-" + max + ")", min, max, objs));
   }
 
   /**
@@ -864,7 +834,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public ParentRule timesOf(int many, Object... objs) {
     if (many <= 0) { throw error("illegal many  timesOf [" + many + "]"); }
-    return new ParentRule(() -> innerTimesOf(many, many, objs));
+    return new ParentRule(() -> innerTimesOf("timesOf(" + many + ")", many, many, objs));
   }
 
   /**
@@ -873,7 +843,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @return rule
    */
   public ParentRule zeroPlusOf(Object... objs) {
-    return new ParentRule(() -> innerTimesOf(0, Integer.MAX_VALUE, objs));
+    return new ParentRule(() -> innerTimesOf("zeroPlusOf()", 0, Integer.MAX_VALUE, objs));
   }
 
   /**
@@ -882,7 +852,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @return rule
    */
   public ParentRule onePlusOf(Object... objs) {
-    return new ParentRule(() -> innerTimesOf(1, Integer.MAX_VALUE, objs));
+    return new ParentRule(() -> innerTimesOf("onePlusOf()", 1, Integer.MAX_VALUE, objs));
   }
 
   /**
@@ -891,7 +861,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * @return rule
    */
   public ParentRule optOf(Object... objs) {
-    return new ParentRule(() -> innerTimesOf(0, 1, objs));
+    return new ParentRule(() -> innerTimesOf("optOf()", 0, 1, objs));
   }
 
   /**
@@ -904,7 +874,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   /**
    * Execs a blob of code, always continues parsing.
    */
-  public Exec exec(Runnable del) {
+  public Exec ex(Runnable del) {
     return () -> {
       del.run();
       return true;
@@ -912,19 +882,12 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
   }
 
   /**
-   * Really tiny variant.
-   * @param del delegate
-   * @return Exec
-   */
-  public Exec e(Runnable del) { return exec(del); }
-
-  /**
    * Rule with matches any character.
    * @return rule
    */
   public PegLegRule<V> anyChar() {
     return () -> {
-      get().pushFrame();
+      get().pushFrame("anyChar()");
       int n = get().nextChar();
       return get().ruleReturn(n >= 0, n >= 0);
     };
@@ -936,7 +899,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public PegLegRule<V> nothing() {
     return () -> {
-      get().pushFrame();
+      get().pushFrame("nothing()");
       return get().ruleReturn(false, false);
     };
   }
@@ -947,7 +910,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    */
   public PegLegRule<V> empty() {
     return () -> {
-      get().pushFrame();
+      get().pushFrame("empty()");
       return get().ruleReturn(true, true);
     };
   }
@@ -956,30 +919,37 @@ public class PegLegParser<V> implements Supplier<PegLegParser.Context<V>> {
    * Value stack.
    * @return value stack
    */
-  public Values<V> values() { return get().values(); }
-
-  /**
-   * The last rule's matched literal. Shorthand for the Context method.
-   * @return last match literal
-   */
-  public Optional<String> match() { return get().match(); }
+  public Values<V> values() { return values; }
 
   /**
    * A Parsing entry point.
    * @param rule rule to start with
    * @return rule return value
    */
-  public RuleReturn<V> parse(PegLegRule<V> rule) {
-    return rule.rule();
-  }
+  public RuleReturn<V> parse(PegLegRule<V> rule) { return rule.rule(); }
+
+  public SourcePosition getFarthestSuccessfulPos() { return farthestSuccessfulPos; }
+
+  public SourcePosition getGreatestFailurePos() { return greatestFailurePos; }
 
   public String getFailureMessage() {
-    if (!context.getLastReturn().matched()) {
-      int len = context.farthestSuccessfulPos.bufferPos - context.greatestFailurePos.bufferPos;
+    if (!getLastReturn().matched()) {
+      int len = farthestSuccessfulPos.srcPos - greatestFailurePos.srcPos;
       return String.format("Parsing failure at line %d, position %d. Unrecognized input starts: [%s]",
-        context.greatestFailurePos.line, context.greatestFailurePos.linePos + len,
-        source.substring(context.greatestFailurePos.bufferPos + len));
+        greatestFailurePos.line, greatestFailurePos.linePos + len, source.substring(greatestFailurePos.srcPos + len));
     }
     return "Not a failure";
+  }
+
+  /**
+   * name a rule
+   */
+  public PegLegRule<V> named(String name, PegLegRule<V> del) {
+    return new ParentRule(() -> {
+      pushFrame(name);
+      RuleReturn<V> ret = del.rule();
+      ruleReturn(ret.matched(), ret.consumed);
+      return ret;
+    });
   }
 }
