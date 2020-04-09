@@ -374,15 +374,15 @@ public class PegLegParserTest {
     json.using(str);
     PegLegParser.RuleReturn<JSONOne.JObject> ret = json.parse(json.jsonArray());
     assertThat(ret.matched(), is(false));
-    assertThat(json.farthestSuccessfulPos.srcPos, is(6));
-    assertThat(json.greatestFailurePos.srcPos, is(0));
+    assertThat(json.getFarthestSuccessfulPos().srcPos, is(6));
+    System.out.println(json.getFailureMessage());
 
     str = "[  10, true, [-1, -2, blerg, false, { \"1\" : 3, \"10\" : 4, } , \"thingy\"], 10.3]";
     json.using(str);
     ret = json.parse(json.json());
     assertThat(ret.matched(), is(false));
-    assertThat(json.farthestSuccessfulPos.srcPos, is(22));
-    assertThat(json.greatestFailurePos.srcPos, is(20));
+    assertThat(json.getFarthestSuccessfulPos().srcPos, is(22));
+    System.out.println(json.getFailureMessage());
 
   }
 
@@ -517,4 +517,45 @@ public class PegLegParserTest {
     return sb;
   }
 
+  static class CmdParser extends PegLegParser<Object> {
+    public CmdParser() {
+    }
+
+    PegLegRule<Object> top() {
+      return seqOf(ws(), onePlusOf(cmd(), ws()), ws('{'), arg(), ws('}'));
+    }
+
+    PegLegRule<Object> cmd() {
+      return dictionaryOf("one", "two", "three", "happy").ignoreCase();
+    }
+
+    PegLegRule<Object> arg() {
+      return zeroPlusOf(firstOf(charRange('0', '9'), charRange('a', 'z').ignoreCase()));
+    }
+  }
+
+  @Test
+  public void testDictParser() {
+    CmdParser parser = new CmdParser();
+    parser.using("one { thing }");
+    PegLegParser.RuleReturn<Object> ret = parser.parse(parser.top());
+    assertThat(ret.matched(), is(true));
+
+    parser.using("oNe { thing }");
+    ret = parser.parse(parser.top());
+    assertThat(ret.matched(), is(true));
+
+    parser.using("onmes { thing }");
+    ret = parser.parse(parser.top());
+    assertThat(ret.matched(), is(false));
+
+    parser.using("happy { times }");
+    ret = parser.parse(parser.top());
+    assertThat(ret.matched(), is(true));
+
+    parser.using("one two { times }");
+    ret = parser.parse(parser.top());
+    assertThat(ret.matched(), is(true));
+
+  }
 }

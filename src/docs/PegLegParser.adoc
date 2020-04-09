@@ -56,9 +56,26 @@ parser. Can be multichar.
 ** `ws(char)` -- matches the char, surrounded by 0 or more white space chars
 ** `anyOf(String)` -- matches 1 char, from the set in the string
 ** `noneOf(String)` -- matches 1 char, not in the set in the string
+** `dictionaryOf(String.... strings)` -- dictionary lookup, matches 1 of the choices.
 
-IMPORTANT: All of these add a .ignoreCase() call returning a variant that ignores case so
-you can do `charRange('a', 'b').ignoreCase()`, for example.
+IMPORTANT: All of the Character/String terminal rules add a `.ignoreCase()` call
+returning a variant that ignores case so you can do `charRange('a',
+'b').ignoreCase()`, for example.
+
+===== dictionaryOf Notes
+
+The `dictionaryOf` rule exists to offset a problem PEGs face with a common parse
+pattern. Consider a rule where you wish to match a set of commands:
+`["list", "delete", "rename"]`. If you do this a lot, you can end up backtracking a
+*lot*. This is one of the things memoizing/packrat parsing will solve, but we do not
+have room for that (at the moment. Unless I reorganize the code a lot).
+However, this predicate is very fast, as it precalcs the set of choices as a hash map
+and does only K lookups, where K is the number of different lengths of the strings
+present. It is basically an optimal version of `firstOf()` over string literals.
+
+Often this is actually useful with the `testNotOf()` rule to verify that the next
+thing is *not* one of a set of keywords; in this case an optimal impl helps
+a lot.
 
 ==== PegLeg Core PEG Rules
 These are PegLeg's take on the core PEG rules:
@@ -90,6 +107,36 @@ does not consume input. Used to lookahead.
 ** `testNotOf(Object... rules)` -- Test (__!__) rule, matches if only the subrule does not match,
 does not consume input. Used to lookahead.
 
+===== firstOf Notes
+
+`firstOf()` can be a tripping point when you write your first PEG,
+especially if you are working from a BNF grammer. PEGs are never
+ambigious, in large part because `firstOf()` imposes order. Imagine this rule:
+
+[source,java]
+----
+PeglegRule<?> simple() {
+  return firstof('+', '++', varname());
+}
+----
+
+:singlePlus_: +
+:doublePlus_: ++
+
+This should match, pardon my shorthand, either `{singlePlus_}i` or
+`{doublePlus_}i`. Except it won't because the `{doublePlus_}` will never match;
+the first choice of `{singlePlus_}` will always match first. So you need to
+order your choices so that more specific choices come *first* in the list:
+
+[source,java]
+----
+PeglegRule<?> simple() {
+  return firstof('++', '+', varname());
+}
+----
+
+Not hard, but can be a subtle source of bugs.
+
 ----
 These two rules explain a lot of why PEGs are not the most efficient
 parsers; infinite lookup solves a lot of problems.
@@ -107,6 +154,7 @@ public PEGRule<String> myRule() {
 ----
 
 This manages the visible value for the duration of the rule invocation. More later.
+
 
 ==== Rule Definition
 Let's pick the best rule; the `seqOf(Object... rules)` rule.
@@ -400,10 +448,8 @@ that would be a lot more work, and certainly not fit the ethos here.
 
 * PegLeg will generate a fair amount of YoungGen memory traffic, I think.
 
-* The 1000 line limit hurts in other ways; no room to build a Reader impl
-with (essentially) unlimited pushback and random access to characters in
-the stream. So PegLeg needs to have the whole string as input, which
-stinks.
+* no left recursion rules. There are techniques for doing this, but
+they would require more infrastructure than can be afforded.
 
 But in the end, I am not so much interested in The World's Greatest Parser;
 parsing itself is not a direct interest of mine. So someone else is welcome

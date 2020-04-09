@@ -15,10 +15,15 @@
  */
 package org.sfj;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -50,7 +55,6 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
   private RuleReturn<V> lastReturn = null;
   private RuleReturn<V> lastSuccessfulReturn = null;
   public SourcePosition farthestSuccessfulPos = new SourcePosition();
-  public SourcePosition greatestFailurePos = new SourcePosition();
 
   /**
    * Random holder class for intra rule parser data manipulation. Used within sibling rules.
@@ -344,15 +348,6 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
       }
       if ((lastSuccessfulReturn == null) || (ret.match.srcPos > lastSuccessfulReturn.match.srcPos)) {
         lastSuccessfulReturn = ret;
-        greatestFailurePos.srcPos = -1;
-        farthestSuccessfulPos.srcPos = -1;
-      }
-    } else if (!matched) {
-      int bp = source.state.srcPos;
-      if (lastSuccessfulReturn != null && bp > greatestFailurePos.srcPos && bp < lastSuccessfulReturn.match.srcPos) {
-        greatestFailurePos.srcPos = bp;
-        greatestFailurePos.line = source.state.line;
-        greatestFailurePos.linePos = source.state.linePos;
       }
     }
     return ret;
@@ -425,8 +420,8 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     @Override
     public String toString() {
       if (matched()) {
-        return String.format("RuleReturn match=%s(%s) @ %d for %d (line %d, nextPos=%d)", match != null, consumed,
-          match.srcPos, matchLen, match.line, match.linePos);
+        return String.format("RuleReturn match=%s(%s) @ %d for %d (line %d, nextPos=%d)", match != null, consumed, match.srcPos,
+          matchLen, match.line, match.linePos);
       } else {
         return "RuleReturn match=false";
       }
@@ -475,9 +470,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
         this.rule = (PegLegRule<V>) thing;
       } else if (thing instanceof Exec) {
         this.exec = (Exec) thing;
-      } else if (thing instanceof Runnable) {
-        this.exec = ex((Runnable) thing);
-      } else {
+      } else if (thing instanceof Runnable) { this.exec = ex((Runnable) thing); } else {
         throw new RuntimeException("Expected String/char/PegLegRule/Exec/Runnable; found: " + thing);
       }
     }
@@ -487,6 +480,20 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     boolean isRule() { return rule != null; }
 
     PegLegRule<V> asRule() { return rule; }
+  }
+
+  private Map.Entry<Map<String, String>, int[]> dictTable(String... options) {
+    List<String> key = Arrays.asList(options);
+    HashSet<Integer> lengths = new HashSet<>();
+    Map<String, String> table = new HashMap<>();
+    for (String s : options) {
+      table.put(s.toUpperCase(), s);
+      lengths.add(s.length());
+    }
+    Map.Entry<Map<String, String>, int[]>
+      ret =
+      new AbstractMap.SimpleImmutableEntry<>(table, lengths.stream().mapToInt(i -> i).sorted().toArray());
+    return ret;
   }
 
   private RuleReturn<V> eofRule() {
@@ -574,7 +581,6 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     lastReturn = null;
     lastSuccessfulReturn = null;
     farthestSuccessfulPos = new SourcePosition();
-    greatestFailurePos = new SourcePosition();
     pushFrame();
     return this;
   }
@@ -586,8 +592,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
   public PegLegParser<V> get() { return this; }
 
   IllegalArgumentException error(String message) {
-    return new IllegalArgumentException(
-      "[" + source.getState().line + ":" + source.getState().linePos + "] " + message);
+    return new IllegalArgumentException("[" + source.getState().line + ":" + source.getState().linePos + "] " + message);
   }
 
   /**
@@ -655,9 +660,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     for (int i = 0; i < string.length(); i++) {
       int n = get().nextChar();
       if (n < 0) { return false; }
-      if (!isCharMatch(ignoreCase, string.charAt(i), (char) n)) {
-        return false;
-      }
+      if (!isCharMatch(ignoreCase, string.charAt(i), (char) n)) { return false; }
     }
     return true;
   }
@@ -686,12 +689,38 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
       int n = get().nextChar();
       if (n < 0) { return get().ruleReturn(false, false); }
       for (int i = 0; i < string.length(); i++) {
-        if (isCharMatch(ignoreCase, string.charAt(i), (char) n)) {
-          return get().ruleReturn(true, true);
-        }
+        if (isCharMatch(ignoreCase, string.charAt(i), (char) n)) { return get().ruleReturn(true, true); }
       }
       return get().ruleReturn(false, false);
     });
+  }
+
+  /**
+   * Dictionary lookup, optimized.
+   * @param strings set of strings to match
+   * @return rule
+   */
+  public CharTerminal<V> dictionaryOf(String... strings) {
+    final Map.Entry<Map<String, String>, int[]> tbl = dictTable(strings);
+    return new CharTerminal<>((ignoreCase) -> {
+      get().pushFrame("dictionaryOf(" + Arrays.asList(strings) + ")");
+      boolean ret = innerDict(tbl, ignoreCase);
+      return get().ruleReturn(ret, ret);
+    });
+  }
+
+  private boolean innerDict(Map.Entry<Map<String, String>, int[]> tbl, boolean ignoreCase) {
+    for (int len : tbl.getValue()) {
+      if (source.state.srcPos + len <= source.src.length()) {
+        String actual = source.substring(source.state.srcPos, len);
+        String targetWCase = tbl.getKey().get(actual.toUpperCase());
+        if ((targetWCase != null && ignoreCase) || (actual.equals(targetWCase))) {
+          for (int i = 0; i < actual.length(); i++) { source.nextChar(); }
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -705,9 +734,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
       int n = get().nextChar();
       if (n >= 0) {
         for (int i = 0; i < string.length(); i++) {
-          if (isCharMatch(ignoreCase, string.charAt(i), (char) n)) {
-            return get().ruleReturn(false, false);
-          }
+          if (isCharMatch(ignoreCase, string.charAt(i), (char) n)) { return get().ruleReturn(false, false); }
         }
         return get().ruleReturn(true, true);
       }
@@ -930,13 +957,10 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
 
   public SourcePosition getFarthestSuccessfulPos() { return farthestSuccessfulPos; }
 
-  public SourcePosition getGreatestFailurePos() { return greatestFailurePos; }
-
   public String getFailureMessage() {
     if (!getLastReturn().matched()) {
-      int len = farthestSuccessfulPos.srcPos - greatestFailurePos.srcPos;
-      return String.format("Parsing failure at line %d, position %d. Unrecognized input starts: [%s]",
-        greatestFailurePos.line, greatestFailurePos.linePos + len, source.substring(greatestFailurePos.srcPos + len));
+      return String.format("Parsing failure at line %d, position %d. Unrecognized input starts: [%s]", farthestSuccessfulPos.line,
+        farthestSuccessfulPos.linePos, source.substring(farthestSuccessfulPos.srcPos));
     }
     return "Not a failure";
   }
