@@ -19,13 +19,13 @@ Software minimalism is alive!
 
 == Ground Rules
 
-* 1000 lines in a file, no more than 120 chars on a line, commented enough 
+* 1000 lines in a file, no more than 132 chars on a line, commented enough
 to be useful.
 ** This led to minor formatting tricks in the case of PegLegParser, which is
 juuuust barely under 1000 lines.
 ** But stick to the included IntelliJ code style definition in the repo
 * *No dependencies* beyond test code deps for your single test file.
-* *APACHE 2.0 License*. Thank you.
+* *Apache 2.0 License*. Thank you.
 * 1 piece of functionality; i.e., collections of random misc utils don't count.
 * Not production pretty, necessarily. These classes are best regarded as erector
 set pieces for rapid prototyping, not production deployment. This means you are free
