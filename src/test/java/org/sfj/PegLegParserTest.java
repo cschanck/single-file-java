@@ -83,8 +83,7 @@ public class PegLegParserTest {
 
     PegLegRule<Long> expression() {
       Ref<String> op = new Ref<>("");
-      return seqOf(term(),
-        zeroPlusOf(seqOf(anyOf("+-"), ex(() -> op.set(match().get())), term(), ex(() -> doMath(op))))).refs(op);
+      return seqOf(term(), zeroPlusOf(seqOf(anyOf("+-"), ex(() -> op.set(match().get())), term(), ex(() -> doMath(op))))).refs(op);
     }
 
     private void doMath(Ref<String> op) {
@@ -108,8 +107,7 @@ public class PegLegParserTest {
       return () -> {
         Ref<String> op = new Ref<>("");
         return seqOf(factor(),
-          zeroPlusOf(seqOf(anyOf("*/"), ex(() -> op.set(match().get())), factor(), ex(() -> doMath(op))))).refs(op)
-                                                                                                          .rule();
+          zeroPlusOf(seqOf(anyOf("*/"), ex(() -> op.set(match().get())), factor(), ex(() -> doMath(op))))).refs(op).rule();
       };
     }
 
@@ -203,16 +201,16 @@ public class PegLegParserTest {
    * JSON parser, leaves a single object on top of the stack, using
    * the JSONOne package.
    */
-  static class Json extends PegLegParser<JSONOne.JObject> {
+  public static class Json extends PegLegParser<JSONOne.JObject> {
     PegLegRule<JSONOne.JObject> json() {
       return named("json", seqOf(firstOf(jsonObject(), jsonArray())));
     }
 
     PegLegRule<JSONOne.JObject> jsonObject() {
       Ref<JSONOne.JMap> map = new Ref<>(JSONOne.JMap::new);
-      return named("jsonObject", () -> seqOf(ws('{'),
-        optOf(seqOf(pair(), ex(addPair(map)), zeroPlusOf(',', pair(), ex(addPair(map))), optOf(ws(',')))), ws('}'),
-        ex(() -> values().push(map.get()))).refs(map).rule());
+      return named("jsonObject",
+        () -> seqOf(ws('{'), optOf(seqOf(pair(), ex(addPair(map)), zeroPlusOf(',', pair(), ex(addPair(map))), optOf(ws(',')))),
+          ws('}'), ex(() -> values().push(map.get()))).refs(map).rule());
     }
 
     private Runnable addPair(Ref<JSONOne.JMap> map) {
@@ -346,8 +344,7 @@ public class PegLegParserTest {
     ret = json.parse(json.json());
     assertThat(ret.matched(), is(false));
 
-    json.using(
-      "[  10, true, { \"foo\":1001, \"blah\": { \"a\":1, \"b\":2 }}, null, [false, [-1, -2, false, \"thingy\"], 10.3] ]");
+    json.using("[  10, true, { \"foo\":1001, \"blah\": { \"a\":1, \"b\":2 }}, null, [false, [-1, -2, false, \"thingy\"], 10.3] ]");
     ret = json.parse(json.json());
     assertThat(ret.matched(), is(true));
 
