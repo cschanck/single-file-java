@@ -428,6 +428,16 @@ the Ref's into methods for further processing.
 It is also (at the time of writing) 111 lines long vs 337 lines for the hand
 built one, and took very little time to do.
 
+As an example, on the _sfcitylots.json_ dataset (180MB), the hand-written parser
+was 4.6X faster than the PegLegParser version, which seems about right. I spent
+a lot more time writing the hand-written one, IIRC. I did clean up a couple
+perf related things along the way, but there is not a lot more to do without
+packrat parsing, but the more I think about it, the more difficult it becomes,
+because rule evaluation involves creating a lambda, which means it is hard to
+identify that a rule is the 'same'. Further pondering might be useful. I could
+just do named rules, but then you are relying on users not misnaming multiple
+rules the same. Ponder, ponder, ponder.
+
 == Error Handling
 
 The `getFailureMessage()` gives you a best guess error message for where
