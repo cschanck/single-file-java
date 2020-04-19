@@ -56,7 +56,6 @@ tap in and ship the invocation to the server site, and then ship the return
 value back and complete the operation. Stupid prototype RPC mechanism if you
 couple it with some network transport backplane.
 
-
 == ReplacementDiskSort
 
 Simple external disk sort, let's you specify the max number of in-memory
@@ -66,3 +65,12 @@ to facilitate using arbitrary file data. Note that the run creation pass
 uses exactly 1 iterator and 1 appender, so the file buffering overhead
 would be small. In the merge pass, N many readers are used, so N many
 file buffering objects (whatever you implement). Hence the two controls.
+
+== RFC4180CSVParser
+
+Simple CSV parser for basic CSV parsing. Nothing special, but does handle
+multiline quoted fields properly, which can be painful. A personal answer
+to an age old question, "How hard can it be?". And I avoided regex, which
+was the actual starting point. But like the man said, then you have 2 problems.
+So hard not to just do this with PegLeg! Would have been slower to run,
+but so easy to write.
