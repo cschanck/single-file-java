@@ -29,15 +29,15 @@ import java.util.NoSuchElementException;
  * swallow '\n', '\r' or '\r\n' line endings.
  * <p>It attempts to implement the subset of RFV4180 called out on wikipedia:
  * <ul>
- * <il>MS-DOS-style lines that end with (CR/LF) characters (optional for the last line).</il>
- * <il>An optional header record (there is no sure way to detect whether it is present, so care
- * is required when importing).</il>
- * <il>Each record should contain the same number of comma-separated fields.</il>
- * <il>Any field may be quoted (with double quotes).</il>
- * <il>Fields containing a line-break, double-quote or commas should be quoted. (If they
- * are not, the file will likely be impossible to process correctly.)</il>
- * <il>If double-quotes are used to enclose fields, then a double-quote must be
- * represented by two double-quote characters.</il>
+ * <li>MS-DOS-style lines that end with (CR/LF) characters (optional for the last line).
+ * <li>An optional header record (there is no sure way to detect whether it is present, so care
+ * is required when importing).
+ * <li>Each record should contain the same number of comma-separated fields.
+ * <li>Any field may be quoted (with double quotes).
+ * <li>Fields containing a line-break, double-quote or commas should be quoted. (If they
+ * are not, the file will likely be impossible to process correctly.)
+ * <li>If double-quotes are used to enclose fields, then a double-quote must be
+ * represented by two double-quote characters.
  * </ul>
  * Additionally, it will ignore blank lines. The "header" line is not actually handled
  * at all, you must handle it explicitly. It should handle quoted multi-line fields

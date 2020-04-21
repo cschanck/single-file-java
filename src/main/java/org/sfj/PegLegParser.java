@@ -900,6 +900,8 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
 
   /**
    * Execs a blob of code, always continues parsing.
+   * @param del delegate call
+   * @return exec
    */
   public Exec ex(Runnable del) {
     return () -> {
