@@ -90,8 +90,8 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Encode a key/value (here you must handle null values) into a ByteBuffer.
-   * @param <KK>
-   * @param <VV>
+   * @param <KK> key type
+   * @param <VV> value type
    */
   @FunctionalInterface
   public interface Encoder<KK, VV> {
@@ -100,8 +100,8 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
 
   /**
    * Decode a byte array into a key/value pair.
-   * @param <KK>
-   * @param <VV>
+   * @param <KK> key type
+   * @param <VV> value type
    */
   @FunctionalInterface
   public interface Decoder<KK, VV> {

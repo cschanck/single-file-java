@@ -42,7 +42,7 @@ import java.util.function.Consumer;
  * <p>You can either fire a message at a remote, or send a message and ask for
  * a response. That's it. But small building blocks are sometimes enough.
  *
- * <p>See {@link PojoClientServer.Server()} and {@link PojoClientServer.Client()}
+ * <p>See {@link PojoClientServer.Server} and {@link PojoClientServer.Client}
  * for more info
  * @author cschanck
  */
