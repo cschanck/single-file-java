@@ -90,8 +90,19 @@ But even with the verbosity, you can write a lot with a little code.
 See the Overview doc for a description of current files. See specific docs in 
 src/docs for more info. 
 
-There will be a maven artifact on MavenCentral at some point,
-but really, just download the file you need.
+== Maven!
+
+We're on Maven Central!
+
+```
+    <dependency>
+      <groupId>org.singlefilejava</groupId>
+      <artifactId>single-file-java</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+```
+
+But really, just download the file you need if you like.
  
 == Contributing
 
