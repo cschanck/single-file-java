@@ -42,7 +42,7 @@ public class ChiseledMapTest {
 
   @Test
   public void test1KWrites() throws IOException {
-    int N = 1000000;
+    int N = 100000;
     byte[] b = new byte[1024];
     for (int i = 0; i < b.length; i++) {
       b[i] = (byte) i;
@@ -54,10 +54,12 @@ public class ChiseledMapTest {
     }
     kv.flush();
     long took = System.nanoTime() - ns;
-    long secs = TimeUnit.NANOSECONDS.toSeconds(took);
+    long msecs = TimeUnit.NANOSECONDS.toMillis(took);
     long bytes = kv.bytesOnDisk();
-    long bytesPerSec = bytes / secs;
-    System.out.println(kv.bytesOnDisk() + " --> " + took + "ns @ " + bytesPerSec + " bytes/sec");
+    if (msecs > 0) {
+      long bytesPerSec = bytes / msecs;
+      System.out.println(kv.bytesOnDisk() + " --> " + took + "ns @ " + bytesPerSec + " bytes/msec");
+    }
     kv.close();
   }
 

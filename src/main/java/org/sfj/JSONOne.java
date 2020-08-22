@@ -263,7 +263,7 @@ public class JSONOne {
    * JSON Array class. List of {@link JSONOne.JObject}s.
    */
   public static class JArray extends AbstractList<JObject> implements JObject {
-    private CopyOnWriteArrayList<JObject> list = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<JObject> list = new CopyOnWriteArrayList<>();
 
     public JArray() {
     }
@@ -387,7 +387,7 @@ public class JSONOne {
    * JSON Map value. String to {@link JSONOne.JObject}.
    */
   public static class JMap extends AbstractMap<String, JObject> implements JObject {
-    private ConcurrentHashMap<String, JObject> map = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, JObject> map = new ConcurrentHashMap<>();
 
     public JMap() {
     }
@@ -594,7 +594,7 @@ public class JSONOne {
     private int current = 0;
     private int start = 0;
     private int line = 1;
-    private LinkedList<Token> pushBack = new LinkedList<>();
+    private final LinkedList<Token> pushBack = new LinkedList<>();
 
     Scanner(String input) {
       this.input = input;
@@ -653,7 +653,7 @@ public class JSONOne {
         return pushBack.removeFirst();
       }
 
-      for (; !isAtEnd(); ) {
+      while (!isAtEnd()) {
         char ch = advance();
         switch (ch) {
           case '\n':
@@ -811,7 +811,7 @@ public class JSONOne {
    */
   public static class Parser {
     private final Scanner scanner;
-    private NumberFormat nFormat = NumberFormat.getInstance();
+    private final NumberFormat nFormat = NumberFormat.getInstance();
 
     public Parser(String input) {
       scanner = new Scanner(input);

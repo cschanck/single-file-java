@@ -74,9 +74,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
    * Open methods.
    */
   public enum OpenOption {
-    MUST_BE_NEW,
-    MUST_EXIST,
-    DONT_CARE
+    MUST_BE_NEW, MUST_EXIST, DONT_CARE
   }
 
   /**
@@ -119,8 +117,8 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   private long currentWritePos = HDR.length;
   private long nextWritePos = HDR.length;
   private volatile int pendingWrites = 0;
-  private Encoder<K, V> encoder;
-  private Decoder<K, V> decoder;
+  private final Encoder<K, V> encoder;
+  private final Decoder<K, V> decoder;
   private long entriesOnDisk = 0;
 
   /**
@@ -166,7 +164,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
    * @param decoder Decoder to use. If null, default Java deserializer is used.
    * @throws IOException on exception
    */
-  @SuppressWarnings({"raw","unchecked"})
+  @SuppressWarnings( { "raw", "unchecked" })
   public ChiseledMap(File file,
                      OpenOption open,
                      Comparator<K> comp,
@@ -288,7 +286,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
     pendingWrites = 0;
   }
 
-  private synchronized void flushBuffer(ByteBuffer b) throws IOException {
+  private void flushBuffer(ByteBuffer b) throws IOException {
     // flush arbitrary buffer to disk, update next write pos
     b.flip();
     int toWrite = b.remaining();
@@ -321,7 +319,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
     return ret;
   }
 
-  private synchronized void write(ByteBuffer len, ByteBuffer arr, ByteBuffer d, int fp) throws IOException {
+  private void write(ByteBuffer len, ByteBuffer arr, ByteBuffer d, int fp) throws IOException {
     // write the data into the buffer, flushing if necessary
     if (writeBuffer.capacity() < fp) {
       // can't use the write buffer, flush pending and write it explicitly.
@@ -399,7 +397,7 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
    */
   public Iterable<Entry<K, V>> entries() {
     return () -> new Iterator<Entry<K, V>>() {
-      Iterator<Entry<K, Long>> base = map.entrySet().iterator();
+      final Iterator<Entry<K, Long>> base = map.entrySet().iterator();
 
       @Override
       public boolean hasNext() {

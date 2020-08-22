@@ -226,8 +226,8 @@ public class PojoClientServer {
     private final ExecutorService pool;
     private volatile boolean listening;
     private ServerSocket serverSocket;
-    private AtomicInteger clientIdGen = new AtomicInteger(0);
-    private ConcurrentHashMap<Integer, SingleConnection> incomingClients = new ConcurrentHashMap<>();
+    private final AtomicInteger clientIdGen = new AtomicInteger(0);
+    private final ConcurrentHashMap<Integer, SingleConnection> incomingClients = new ConcurrentHashMap<>();
     private volatile boolean alive = true;
     private volatile Throwable lastIgnoredThrowable = null;
 
@@ -383,8 +383,8 @@ public class PojoClientServer {
    * Bundle of clients from this porcess to a variety of remote endpoints.
    */
   public static class Client {
-    private ConcurrentHashMap<Integer, SingleConnection> outgoingClients = new ConcurrentHashMap<>();
-    private AtomicInteger clientIdGen = new AtomicInteger(0);
+    private final ConcurrentHashMap<Integer, SingleConnection> outgoingClients = new ConcurrentHashMap<>();
+    private final AtomicInteger clientIdGen = new AtomicInteger(0);
     private final String name;
     private final Encoder encoder;
     private final Decoder decoder;

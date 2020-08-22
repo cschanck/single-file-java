@@ -58,11 +58,11 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
 
   /**
    * Random holder class for intra rule parser data manipulation. Used within sibling rules.
-   * @param <V>
+   * @param <V> value type to hold
    */
-  static class Ref<V> {
+  public static class Ref<V> {
     private final Supplier<V> init;
-    private LinkedList<V> stack = new LinkedList<>();
+    private final LinkedList<V> stack = new LinkedList<>();
 
     public Ref(V value) { this.init = () -> value; }
 
@@ -85,7 +85,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
    * @param <V> Value type
    */
   @FunctionalInterface
-  interface PegLegRule<V> {
+  public interface PegLegRule<V> {
     RuleReturn<V> rule();
   }
 
@@ -93,7 +93,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
    * An execution, which return true to continue parsing, false to stop.
    */
   @FunctionalInterface
-  interface Exec {
+  public interface Exec {
     boolean exec();
   }
 
@@ -102,12 +102,12 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
    * @param <V> value type
    */
   @FunctionalInterface
-  interface TerminalRule<V> {
+  public interface TerminalRule<V> {
     RuleReturn<V> rule(boolean ignore);
   }
 
-  class ParentRule implements PegLegRule<V> {
-    private PegLegRule<V> rule;
+  public class ParentRule implements PegLegRule<V> {
+    private final PegLegRule<V> rule;
     private Ref<?>[] refs = null;
 
     public ParentRule(PegLegRule<V> rule) {
@@ -131,7 +131,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     }
   }
 
-  static class SourcePosition {
+  public static class SourcePosition {
     int line = 1;
     int linePos = 0;
     int srcPos = 0;
@@ -154,7 +154,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     }
   }
 
-  static class SourceFrame extends SourcePosition {
+  public static class SourceFrame extends SourcePosition {
     final String name;
 
     public SourceFrame(String name, SourcePosition pos) {
@@ -483,17 +483,13 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
   }
 
   private Map.Entry<Map<String, String>, int[]> dictTable(String... options) {
-    List<String> key = Arrays.asList(options);
     HashSet<Integer> lengths = new HashSet<>();
     Map<String, String> table = new HashMap<>();
     for (String s : options) {
       table.put(s.toUpperCase(), s);
       lengths.add(s.length());
     }
-    Map.Entry<Map<String, String>, int[]>
-      ret =
-      new AbstractMap.SimpleImmutableEntry<>(table, lengths.stream().mapToInt(i -> i).sorted().toArray());
-    return ret;
+    return new AbstractMap.SimpleImmutableEntry<>(table, lengths.stream().mapToInt(i -> i).sorted().toArray());
   }
 
   private RuleReturn<V> eofRule() {
@@ -549,7 +545,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
     get().pushFrame(name);
     int cnt = get().frameDepth();
     int matchCount = 0;
-    for (; matchCount < max; ) {
+    while (matchCount < max) {
       RuleReturn<V> ret = rule.rule();
       if (ret.matched()) {
         ++matchCount;
@@ -591,7 +587,7 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
    */
   public PegLegParser<V> get() { return this; }
 
-  IllegalArgumentException error(String message) {
+  protected IllegalArgumentException error(String message) {
     return new IllegalArgumentException("[" + source.getState().line + ":" + source.getState().linePos + "] " + message);
   }
 
@@ -969,6 +965,9 @@ public class PegLegParser<V> implements Supplier<PegLegParser<V>> {
 
   /**
    * name a rule
+   * @param name name
+   * @param del delegate
+   * @return rule
    */
   public PegLegRule<V> named(String name, PegLegRule<V> del) {
     return new ParentRule(() -> {

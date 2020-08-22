@@ -49,7 +49,7 @@ public class ReplacementDiskSort<E extends ReplacementDiskSort.Element> {
 
   public static class PassInfo {
     private final int pass;
-    private long runTimeMS;
+    private final long runTimeMS;
     private final List<File> srcFiles;
     private final List<File> destFiles;
     private final List<Long> runCounts;
@@ -174,9 +174,9 @@ public class ReplacementDiskSort<E extends ReplacementDiskSort.Element> {
   private final Comparator<E> comp;
   private final boolean deleteFiles;
   private final IterMaker<E> iteratorMaker;
-  private AtomicInteger filenameCounter = new AtomicInteger(0);
+  private final AtomicInteger filenameCounter = new AtomicInteger(0);
   protected File workDirectory;
-  private List<PassInfo> runPassInfo = new ArrayList<>();
+  private final List<PassInfo> runPassInfo = new ArrayList<>();
   private PrintStream verbose = System.out;
 
   /**
@@ -222,7 +222,7 @@ public class ReplacementDiskSort<E extends ReplacementDiskSort.Element> {
    * @param workDir working directory
    * @param <E> Element subclass
    * @return the disk sort object used for the sort
-   * @throws IOException
+   * @throws IOException on exception
    */
   public static <E extends Element> ReplacementDiskSort<E> runOnce(IterMaker<E> iteratorMaker,
                                                                    AppenderMaker<E> appenderMaker,
@@ -272,7 +272,7 @@ public class ReplacementDiskSort<E extends ReplacementDiskSort.Element> {
     int pass = 1;
 
     while (current.size() > 1) {
-      for (; !current.isEmpty(); ) {
+      while (!current.isEmpty()) {
         List<File> subFiles;
         if (current.size() < maxElementsForMerges) {
           subFiles = current;
@@ -432,9 +432,7 @@ public class ReplacementDiskSort<E extends ReplacementDiskSort.Element> {
     long tookMS = System.currentTimeMillis() - startMS;
     if (deleteFiles) {
       for (File file : inputFiles) {
-        if (!file.delete()) {
-          int n = 0;
-        }
+        file.delete();
       }
     }
     PassInfo pi = new PassInfo(pass, new ArrayList<>(inputFiles), singletonList(dest), singletonList(cnt), tookMS);
