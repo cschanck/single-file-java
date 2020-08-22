@@ -256,7 +256,10 @@ public class LittleCASPaxos {
     Lock lockFor(String key);
 
     /**
-     * Get the max durable ballot
+     * Get the max durable ballot for any given key.
+     * Intuitively, this the max on disk ballot for all KV's persisted in the store
+     * for this node when it started, compared to the max ballot stored since then.
+     * <p>So it is incremental maintenance only when the node is running.
      *
      * @return max durable ballot.
      */
@@ -289,6 +292,7 @@ public class LittleCASPaxos {
 
     /**
      * Attempt to set promise for this key (use under lock for this key)
+     * Store the promise transiently, but not durably.
      *
      * @param key key
      * @param ballot ballot to promise
@@ -398,9 +402,9 @@ public class LittleCASPaxos {
    * Result of a paxos round (prep/accept).
    */
   public static class RoundResult implements Serializable {
-    private PaxosResult result;
+    private final PaxosResult result;
     private final int responses;
-    private KV kv;
+    private final KV kv;
 
     public RoundResult(PaxosResult res, KV kv, int responses) {
       this.result = res;
@@ -448,7 +452,7 @@ public class LittleCASPaxos {
 
   /**
    * <p>Create a paxos node. You need to provide a network, which node this is,
-   * and a sotrage component. Generally, you invoke by calling
+   * and a storage component. Generally, you invoke by calling
    * {@link #paxos(String, Function, int, long, TimeUnit)}; this will send prepare
    * messages to each node, and then based on that send accept messages to
    * everyone.

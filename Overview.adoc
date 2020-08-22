@@ -6,7 +6,22 @@ This is a very simple but pretty useful persistent ConcurrentMap implementation.
 At it's core, it has an in-memory map of keys to disk locations, then an
 append-only log for storing key+value. The log on disk never gets smaller,
 though you can compact it to another file.
- 
+
+== DrawDot
+
+This is a utility class for drawing dotty/graphviz graphs programmatically.
+Tremendous overview of dotty graphs here:
+https://ncona.com/2020/06/create-diagrams-with-code-using-graphviz/ .
+
+This has a bunch of core functionality that works, mostly around basic graphs,
+but then has a lot of non-core pieces nbot really finished. It is a work in
+progress, there is a lot more that can be done than the API here supports,
+but there is enough implemented to use it for its intended purpose:
+drawing visuals of data structures.
+
+I find when developing complex data types, it is sometimes nice to be able to
+visualize them; this lets me do that.
+
 == DumbCLIParse
 
 Oh, lord, how many times do I need a quick and dirty CLI parser to throw
@@ -70,7 +85,17 @@ file buffering objects (whatever you implement). Hence the two controls.
 
 Simple CSV parser for basic CSV parsing. Nothing special, but does handle
 multiline quoted fields properly, which can be painful. A personal answer
-to an age old question, "How hard can it be?". And I avoided regex, which
+to an age-old question, "How hard can it be?". And I avoided regex, which
 was the actual starting point. But like the man said, then you have 2 problems.
 So hard not to just do this with PegLeg! Would have been slower to run,
 but so easy to write.
+
+== StringsCompare
+
+Often, in unit tests, you might want to compare the output of some thing with a
+file that was saved off. But sometimes, the files are merely close (line
+terminators are a fun example of this). Two ways I have solved this at various
+times, either a custom compare, which does useful canonicalizing, or custom
+conanicalizers which then allow for easy comparison. StringsCompare does the
+latter. Also allows for a predicate to denote lines to skip (commonly used for
+blank lines.)

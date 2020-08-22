@@ -15,10 +15,9 @@
  */
 package org.sfj;
 
-import junit.framework.TestCase;
 import org.hamcrest.Matchers;
+import org.junit.Test;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -27,8 +26,9 @@ import java.io.Reader;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-public class RFC4180CSVParserTest extends TestCase {
+public class RFC4180CSVParserTest {
 
+  @Test
   public void testSimplest() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("simplest.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -55,6 +55,7 @@ public class RFC4180CSVParserTest extends TestCase {
     assertThat(three, Matchers.nullValue());
   }
 
+  @Test
   public void testCommaInQuotes() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("comma_in_quotes.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -80,6 +81,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testEmpty() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("empty.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -107,6 +109,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testEscapedQuotes() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("escaped_quotes.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -131,6 +134,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testJson() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("json.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -150,6 +154,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testNewlines() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("newlines.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -183,6 +188,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testQuotesAndNewlines() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("quotes_and_newlines.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -207,6 +213,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testBlankLines() throws IOException {
     Reader br = new InputStreamReader(this.getClass().getResourceAsStream("blanklines.csv"));
     RFC4180CSVParser parser = new RFC4180CSVParser(br);
@@ -226,6 +233,7 @@ public class RFC4180CSVParserTest extends TestCase {
 
   }
 
+  @Test
   public void testYelp() throws IOException {
     InputStream resource = this.getClass().getResourceAsStream("yelp.csv");
     Reader br = new InputStreamReader(resource);
@@ -241,6 +249,7 @@ public class RFC4180CSVParserTest extends TestCase {
     assertThat(cnt, is(355));
   }
 
+  @Test
   public void testDataIsBeautiful() throws IOException {
     InputStream resource = this.getClass().getResourceAsStream("dataisbeautifulposts.csv");
     Reader br = new InputStreamReader(resource);

@@ -1,0 +1,11 @@
+digraph top {
+  "a"
+  "b"
+  "c" [label="Happy!"]
+  "d" [shape=record, label="one | two | three", color=green]
+  "e" [shape=record, label="{one | two | three}", color=green]
+  "a" -> "b" [color=red, label="foo arrow"]
+  "a" -> "c"
+  "d" -> "c"
+  "e" -> "c"
+}

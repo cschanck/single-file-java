@@ -89,7 +89,7 @@ public class ProxyMe {
    * Return result of an invocation. Suitable to be returned from
    * a server site back to the client. Used to complete an outstanding proxy
    * invocation.
-   * @param <R>
+   * @param <R> return type
    */
   public static class InvocationReturn<R> implements Serializable {
     private long iid;
@@ -126,7 +126,7 @@ public class ProxyMe {
   /**
    * Client side proxy site. Proxies a given interface, manages invocations,
    * passes invocations to designated consumer, manages timeouts.
-   * @param <T>
+   * @param <T> client type
    */
   public static class Client<T> {
     private final ScheduledExecutorService timeouts;
@@ -134,8 +134,8 @@ public class ProxyMe {
     private final Consumer<Invocation> outbound;
     private final long timeout;
     private final TimeUnit units;
-    private AtomicLong idGen = new AtomicLong(0);
-    private ConcurrentHashMap<Long, CompletableFuture<?>> pending = new ConcurrentHashMap<>();
+    private final AtomicLong idGen = new AtomicLong(0);
+    private final ConcurrentHashMap<Long, CompletableFuture<?>> pending = new ConcurrentHashMap<>();
 
     /**
      * Create client proxy site.
@@ -222,12 +222,12 @@ public class ProxyMe {
 
   /**
    * Server site for proxies.
-   * @param <T>
+   * @param <T> server type
    */
   public static class Server<T> {
     private final Class<? super T> proxy;
     private final T instance;
-    private HashMap<String, Method> methods;
+    private final HashMap<String, Method> methods;
 
     /**
      * Create a server side path to invoke a particular invocation
