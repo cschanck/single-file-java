@@ -70,8 +70,9 @@ file", and then -- I ended up with ChiseledMap, a useful single file persistent
 map. What I found was that it was wonderfully concentrating and freeing to
 restrict myself to no outside libraries, and only one file. It was also nice to
 ignore the "production quality" ogre a bit, since we all deal with that beast at
-out day jobs all the time. Being free to use things like serialization, not be hyper
-concerned with security, and not totally worry about perf can be very nice.
+our day jobs all the time. Being free to use things like serialization, not be
+hyper concerned with security, and not totally worry about perf can be very
+nice.
 
 It's also easier to be restricted this way than you might think. The Java
 standard library is really rich, with a ton of adequate things built in. You'll
@@ -102,7 +103,8 @@ We're on Maven Central!
     </dependency>
 ```
 
-But really, just download the file you need if you like.
+But really, you can just download the file you need if you like, and modify to
+suit.
  
 == Contributing
 
