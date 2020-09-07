@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
 
 /**
@@ -96,6 +97,7 @@ public class PojoClientServer {
     private final Decoder decoder;
     private final Consumer<SingleConnection> onClose;
     private volatile Throwable lastIgnoredThrowable = null;
+    private final StampedLock lock = new StampedLock();
 
     public SingleConnection(int id,
                             Socket client,
@@ -162,7 +164,16 @@ public class PojoClientServer {
      * @param msg message object
      * @throws IOException on send failure
      */
-    public synchronized void send(Object msg) throws IOException {
+    public void send(Object msg) throws IOException {
+      long st = lock.writeLock();
+      try {
+        sendNoLock(msg);
+      } finally {
+        lock.unlock(st);
+      }
+    }
+
+    private void sendNoLock(Object msg) throws IOException {
       try {
         byte[] payload = encoder.encode(msg);
         dos.writeInt(payload.length);
@@ -180,13 +191,18 @@ public class PojoClientServer {
      * @return object you received as answer
      * @throws IOException on read/write exception
      */
-    public synchronized Object sendAndReceive(Object msg) throws IOException {
-      send(msg);
-      if (client.isConnected()) {
-        return receive();
-      } else {
-        close();
-        throw new IOException();
+    public Object sendAndReceive(Object msg) throws IOException {
+      long st = lock.writeLock();
+      try {
+        sendNoLock(msg);
+        if (client.isConnected()) {
+          return receiveNoLock();
+        } else {
+          close();
+          throw new IOException();
+        }
+      } finally {
+        lock.unlock(st);
       }
     }
 
@@ -195,7 +211,16 @@ public class PojoClientServer {
      * @return message object
      * @throws IOException on read exception
      */
-    public synchronized Object receive() throws IOException {
+    public Object receive() throws IOException {
+      long st = lock.writeLock();
+      try {
+        return receiveNoLock();
+      } finally {
+        lock.unlock(st);
+      }
+    }
+
+    private Object receiveNoLock() throws IOException {
       try {
         int len = dis.readInt();
         byte[] b = new byte[len];
@@ -367,7 +392,7 @@ public class PojoClientServer {
       }
     }
 
-    private synchronized void stopListening() {
+    private void stopListening() {
       if (listening) {
         listening = false;
         try {
@@ -429,9 +454,7 @@ public class PojoClientServer {
     public SingleConnection createOutgoingClient(InetSocketAddress dest, int connectTimeout) throws IOException {
       Socket sock = new Socket();
       sock.connect(dest, connectTimeout);
-      SingleConnection
-        ret =
-        new SingleConnection(clientIdGen.incrementAndGet(), sock, encoder, decoder, this::deregisterClient);
+      SingleConnection ret = new SingleConnection(clientIdGen.incrementAndGet(), sock, encoder, decoder, this::deregisterClient);
       outgoingClients.put(ret.getId(), ret);
       return ret;
     }

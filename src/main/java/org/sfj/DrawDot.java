@@ -36,6 +36,8 @@ import java.util.stream.Collectors;
  * <p>This is a work in progress, there is a lot more that can be done than
  * the API here supports, but there is enough to use it for its intended purpose:
  * drawing visuals of data structures.
+ * <p>Excellent online viewer for dotty files here:
+ * https://dreampuf.github.io/GraphvizOnline/
  */
 public class DrawDot {
   final static String INDENTION = "  ";

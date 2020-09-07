@@ -1,5 +1,14 @@
 = Overview of Current Files
 
+== ByteBufferStreams
+
+This interface has two classes, which materialize the InputStream/Outputstream
+classes, plus DataIn/DataOut interfaces, over either reading from a ByteBuffer
+or writing to an optionally expandable ByteBuffer. I hink I've written or used
+10 different approaches to this over the years. Also, there are primitives for
+reading/writing ByteBuffers directly to the stream, which is something missing from
+current stuff.
+
 == ChiseledMap
 
 This is a very simple but pretty useful persistent ConcurrentMap implementation.
@@ -10,11 +19,11 @@ though you can compact it to another file.
 == DrawDot
 
 This is a utility class for drawing dotty/graphviz graphs programmatically.
-Tremendous overview of dotty graphs here:
+Find a tremendous overview of dotty graphs here:
 https://ncona.com/2020/06/create-diagrams-with-code-using-graphviz/ .
 
 This has a bunch of core functionality that works, mostly around basic graphs,
-but then has a lot of non-core pieces nbot really finished. It is a work in
+but then has a lot of non-core pieces not really finished. It is a work in
 progress, there is a lot more that can be done than the API here supports,
 but there is enough implemented to use it for its intended purpose:
 drawing visuals of data structures.
@@ -89,6 +98,14 @@ to an age-old question, "How hard can it be?". And I avoided regex, which
 was the actual starting point. But like the man said, then you have 2 problems.
 So hard not to just do this with PegLeg! Would have been slower to run,
 but so easy to write.
+
+== SimpleFSM
+
+This is a driver for defining Finite State Machines. You provide an enum of
+events, then create your named FSM with those events. From the FSM, you can then
+create named ``State`` objects. For each ``State``, you define some number of
+``State``+event transitions. Then you begin your FSM and fire (event, payload)
+pairs at it. Single threaded transition processing makes things easier.
 
 == StringsCompare
 
