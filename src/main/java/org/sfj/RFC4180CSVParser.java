@@ -24,10 +24,10 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * This attempts to implement a very tiny RFX4180 compliant CSV parser.
+ * This attempts to implement a very tiny RFC4180 compliant CSV parser.
  * It relies on {@link BufferedReader}'s end of line handling, so it will
  * swallow '\n', '\r' or '\r\n' line endings.
- * <p>It attempts to implement the subset of RFV4180 called out on wikipedia:
+ * <p>It attempts to implement the subset of RFC4180 called out on wikipedia:
  * <ul>
  * <li>MS-DOS-style lines that end with (CR/LF) characters (optional for the last line).
  * <li>An optional header record (there is no sure way to detect whether it is present, so care
