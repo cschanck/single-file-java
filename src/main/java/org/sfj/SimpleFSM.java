@@ -221,7 +221,7 @@ public class SimpleFSM<E extends Enum<E>> {
     if (failEvent == null) {
       throw te;
     }
-    State nextState = onException.transition(currentState, failEvent, te);
+    State<E> nextState = onException.transition(currentState, failEvent, te);
     if (nextState != null) {
       currentState = nextState;
     }
