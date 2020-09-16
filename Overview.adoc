@@ -73,6 +73,12 @@ Client and Server objects over Java blocking sockets. Expects to send, receive,
 or send-and-receive POJOs, using either java Serialization or a provided
 serialization strategy.
 
+== PositionalPushbackReader
+
+Reader class which allows infinite (memory constrained) pushback, and tracks
+line/column position. Not intended to be insanely efficient, but correct.
+Helpful for parsers and such.
+
 == ProxyMe
 
 Proxy an interface, and then provide a midpoint in the proxy chain where you can

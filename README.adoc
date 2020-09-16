@@ -80,12 +80,11 @@ be surprised what it is like to code something this way; I would not have bet
 that I could do a Single-Decree Paxos impl in under 300 SLOCS, for example, but
 the bounded nature of the project helped me stay focused.
 
-As a friend of mine, an awesome dev, would say: "I want to go code in a cave". 
-Alex, here is your 1000 line cave, go bang some rocks together!
-
 Another, very minor motivation was to refute the constant whining about
 how verbose Java is. Java can be verbose, but that is also part of its strength.
 But even with the verbosity, you can write a lot with a little code.
+
+And yes, this can end up looking like a hodgepodge of random utilities. Duly noted.
 
 == Usage & Docs
 See the Overview doc for a description of current files. See specific docs in 
@@ -99,7 +98,7 @@ We're on Maven Central!
     <dependency>
       <groupId>org.singlefilejava</groupId>
       <artifactId>single-file-java</artifactId>
-      <version>1.1.0</version>
+      <version>1.2.0</version>
     </dependency>
 ```
 
