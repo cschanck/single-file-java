@@ -498,6 +498,18 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
     return map.put(key, newAddr) != null;
   }
 
+  public synchronized V ioGetSet(K key, V v) throws IOException {
+    Objects.requireNonNull(v);
+    Long addr = map.get(key);
+    V ret = null;
+    if (addr != null) {
+      ret = fetch(addr, false, null).getValue();
+    }
+    long newAddr = append(key, v);
+    map.put(key, newAddr);
+    return ret;
+  }
+
   /**
    * Copy only live entries to another file. Blocks writes to this map
    * while snapshotting.
@@ -542,11 +554,9 @@ public class ChiseledMap<K, V> extends AbstractMap<K, V> implements ConcurrentMa
   }
 
   @Override
-  public synchronized V put(K key, V value) {
+  public V put(K key, V value) {
     try {
-      V p = ioGet(key);
-      ioSet(key, value);
-      return p;
+      return ioGetSet(key, value);
     } catch (IOException e) {
       throw new RuntimeIOException(e);
     }
